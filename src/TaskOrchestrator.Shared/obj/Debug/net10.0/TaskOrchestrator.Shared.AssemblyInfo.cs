@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TaskOrchestrator.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dfa4ed35235f8b868e5d4c672fd7425835bffd15")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3545a44acb02e28637e6dcf91423c3b5c696e235")]
 [assembly: System.Reflection.AssemblyProductAttribute("TaskOrchestrator.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TaskOrchestrator.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
