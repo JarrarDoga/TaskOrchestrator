@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TaskOrchestrator.Api/TaskOrchestrator.Api.csproj" />
+    <Project Path="src/TaskOrchestrator.Client/TaskOrchestrator.Client.csproj" />
+    <Project Path="src/TaskOrchestrator.Shared/TaskOrchestrator.Shared.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,11 @@
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\bin\Debug\net10.0\TaskOrchestrator.Shared.deps.json
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\bin\Debug\net10.0\TaskOrchestrator.Shared.dll
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\bin\Debug\net10.0\TaskOrchestrator.Shared.pdb
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.AssemblyInfoInputs.cache
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.AssemblyInfo.cs
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.csproj.CoreCompileInputs.cache
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.dll
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\refint\TaskOrchestrator.Shared.dll
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\TaskOrchestrator.Shared.pdb
+C:\Users\jarra\OneDrive\Desktop\Coding\taskOrchestrator\src\TaskOrchestrator.Shared\obj\Debug\net10.0\ref\TaskOrchestrator.Shared.dll
