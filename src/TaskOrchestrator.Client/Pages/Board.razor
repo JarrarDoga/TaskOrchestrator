@@ -209,9 +209,19 @@
     void OnAttachmentUploaded(AttachmentDto att)
     {
         _state.ApplyAttachmentAdded(_selectedCard!.Id, att);
+        if (_selectedCard.Attachments.Any(existing => existing.Id == att.Id))
+            return;
+
+        var url = att.Url.StartsWith("/", StringComparison.Ordinal)
+            ? new Uri(HttpClient.BaseAddress!, att.Url).ToString()
+            : att.Url;
+
         _selectedCard = _selectedCard with
         {
-            Attachments = new List<AttachmentDto>(_selectedCard.Attachments) { att }
+            Attachments = new List<AttachmentDto>(_selectedCard.Attachments)
+            {
+                att with { Url = url }
+            }
         };
     }
 
@@ -245,7 +255,8 @@
         if (response.IsSuccessStatusCode)
         {
             var card = await response.Content.ReadFromJsonAsync<CardDto>();
-            if (card is not null) _state.ApplyCardCreated(card);
+            if (card is not null && _signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+                _state.ApplyCardCreated(card);
             _addingToColumnId = null;
         }
         else

@@ -25,7 +25,8 @@ public sealed class BoardStateService(HttpClient http)
 
         try
         {
-            Board = await http.GetFromJsonAsync<BoardDetailDto>($"/api/boards/{boardId}");
+            var board = await http.GetFromJsonAsync<BoardDetailDto>($"/api/boards/{boardId}");
+            Board = board is null ? null : NormalizeBoard(board);
             var activity = await http.GetFromJsonAsync<List<ActivityEventDto>>(
                 $"/api/boards/{boardId}/activity") ?? [];
             RecentActivity.AddRange(activity.Take(50));
@@ -94,6 +95,11 @@ public sealed class BoardStateService(HttpClient http)
     public void ApplyCardCreated(CardDto card)
     {
         if (Board is null) return;
+        card = NormalizeCard(card);
+
+        if (Board.Columns.SelectMany(c => c.Cards).Any(existing => existing.Id == card.Id))
+            return;
+
         var col = Board.Columns.FirstOrDefault(c => c.Id == card.ColumnId);
         if (col is null) return;
 
@@ -105,6 +111,7 @@ public sealed class BoardStateService(HttpClient http)
     public void ApplyCardUpdated(CardDto incoming)
     {
         if (Board is null) return;
+        incoming = NormalizeCard(incoming);
 
         var (existing, col) = FindCard(incoming.Id);
         if (existing is null || col is null) return;
@@ -141,8 +148,12 @@ public sealed class BoardStateService(HttpClient http)
     public void ApplyAttachmentAdded(int cardId, AttachmentDto attachment)
     {
         if (Board is null) return;
+        attachment = NormalizeAttachment(attachment);
         var (card, col) = FindCard(cardId);
         if (card is null || col is null) return;
+
+        if (card.Attachments.Any(existing => existing.Id == attachment.Id))
+            return;
 
         var newAttachments = new List<AttachmentDto>(card.Attachments) { attachment };
         var updatedCard = card with { Attachments = newAttachments };
@@ -204,6 +215,34 @@ public sealed class BoardStateService(HttpClient http)
 
     private void RebuildSingleColumn(int colId, List<CardDto> cards) =>
         RebuildBoard(colId, cards, colId, cards);
+
+    private BoardDetailDto NormalizeBoard(BoardDetailDto board) =>
+        board with
+        {
+            Columns = board.Columns
+                .Select(col => col with
+                {
+                    Cards = col.Cards.Select(NormalizeCard).ToList()
+                })
+                .ToList()
+        };
+
+    private CardDto NormalizeCard(CardDto card) =>
+        card with
+        {
+            Attachments = card.Attachments.Select(NormalizeAttachment).ToList()
+        };
+
+    private AttachmentDto NormalizeAttachment(AttachmentDto attachment)
+    {
+        if (http.BaseAddress is null || !Uri.TryCreate(attachment.Url, UriKind.RelativeOrAbsolute, out var uri))
+            return attachment;
+
+        if (uri.IsAbsoluteUri)
+            return attachment;
+
+        return attachment with { Url = new Uri(http.BaseAddress, uri).ToString() };
+    }
 
     private void NotifyChange() => OnChange?.Invoke();
 }

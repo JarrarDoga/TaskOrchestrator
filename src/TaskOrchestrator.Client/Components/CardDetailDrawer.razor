@@ -111,7 +111,7 @@
                             <p class="text-xs text-zinc-600">drop file, paste, or <span class="text-blue-500 cursor-pointer">browse</span></p>
                         }
                     </div>
-                    <InputFile @ref="_inputFile" class="hidden" OnChange="OnFileSelected" />
+                    <InputFile id="@_fileInputId" @ref="_inputFile" class="hidden" OnChange="OnFileSelected" />
                     @if (_uploadError is not null)
                     {
                         <p class="mt-1 text-xs text-red-400">@_uploadError</p>
@@ -127,6 +127,10 @@
 
             @* Footer actions *@
             <div class="border-t border-zinc-800 px-4 py-3 flex gap-2 justify-end">
+                @if (_saveError is not null)
+                {
+                    <p class="mr-auto self-center text-xs text-red-400">@_saveError</p>
+                }
                 @if (_editing)
                 {
                     <button class="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400
@@ -156,10 +160,12 @@
     InputFile? _inputFile;
     bool _editing, _uploading;
     string? _uploadError;
+    string? _saveError;
     string _editTitle = "";
     string? _editDescription;
     TaskPriority _editPriority;
     List<ActivityEventDto> _activity = [];
+    readonly string _fileInputId = $"attachment-input-{Guid.NewGuid():N}";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -173,8 +179,15 @@
     async Task LoadActivityAsync()
     {
         if (Card is null) return;
-        _activity = await Http.GetFromJsonAsync<List<ActivityEventDto>>(
-            $"/api/cards/{Card.Id}/activity") ?? [];
+        try
+        {
+            _activity = await Http.GetFromJsonAsync<List<ActivityEventDto>>(
+                $"/api/cards/{Card.Id}/activity") ?? [];
+        }
+        catch
+        {
+            _activity = [];
+        }
     }
 
     void StartEdit()
@@ -190,6 +203,7 @@
     async Task SaveEdit()
     {
         if (Card is null) return;
+        _saveError = null;
         var req = new UpdateCardRequest(_editTitle, _editDescription, _editPriority, Card.AssignedToUserId, null, Card.Version);
         var response = await Http.PatchAsJsonAsync($"/api/cards/{Card.Id}", req);
         if (response.IsSuccessStatusCode)
@@ -198,9 +212,13 @@
             if (updated is not null) await OnSaved.InvokeAsync(updated);
             _editing = false;
         }
+        else
+        {
+            _saveError = $"Save failed ({(int)response.StatusCode})";
+        }
     }
 
-    void TriggerFilePicker() => _inputFile?.Element?.FocusAsync(); // actual click via JS
+    async Task TriggerFilePicker() => await JS.InvokeVoidAsync("attachmentInterop.clickById", _fileInputId);
 
     async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -213,7 +231,9 @@
             var file = e.File;
             using var content = new MultipartFormDataContent();
             using var stream = file.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
-            content.Add(new StreamContent(stream), "file", file.Name);
+            using var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
 
             var response = await Http.PostAsync($"/api/cards/{Card!.Id}/attachments", content);
             if (response.IsSuccessStatusCode)
@@ -249,8 +269,9 @@
         {
             var bytes = Convert.FromBase64String(base64);
             using var content = new MultipartFormDataContent();
-            content.Add(new ByteArrayContent(bytes), "file", name);
-            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("multipart/form-data");
+            using var fileContent = new ByteArrayContent(bytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(type) ? "application/octet-stream" : type);
+            content.Add(fileContent, "file", name);
             var response = await Http.PostAsync($"/api/cards/{Card.Id}/attachments", content);
             if (response.IsSuccessStatusCode)
             {
@@ -258,6 +279,14 @@
                 if (result?.Attachment is not null)
                     await OnAttachmentUploaded.InvokeAsync(result.Attachment);
             }
+            else
+            {
+                _uploadError = $"Upload failed ({(int)response.StatusCode})";
+            }
+        }
+        catch (Exception ex)
+        {
+            _uploadError = ex.Message;
         }
         finally { _uploading = false; StateHasChanged(); }
     }

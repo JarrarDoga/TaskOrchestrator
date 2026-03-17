@@ -21,7 +21,8 @@ public static class AttachmentEndpoints
     {
         var group = app.MapGroup("/api").WithTags("Attachments");
 
-        group.MapPost("/cards/{cardId:int}/attachments", Upload);
+           group.MapPost("/cards/{cardId:int}/attachments", Upload)
+               .DisableAntiforgery();
         group.MapGet("/attachments/{id:int}/download",  Download);
 
         return app;

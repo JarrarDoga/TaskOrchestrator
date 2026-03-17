@@ -2,6 +2,10 @@
 // dotnetRef must implement ReceiveFile(name, type, base64data).
 
 window.attachmentInterop = {
+    clickById(id) {
+        document.getElementById(id)?.click();
+    },
+
     registerPaste(dotnetRef) {
         document.addEventListener('paste', (e) => {
             const items = e.clipboardData?.items ?? [];
