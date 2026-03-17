@@ -139,7 +139,6 @@
     SignalRService _signalR => _signalRService;
 
     CardDto? _dragging;
-    (int colId, int pos) _dragSource;
     CardDto? _selectedCard;
     int? _addingToColumnId;
     string _newCardTitle = "";
@@ -164,7 +163,6 @@
     void OnCardDragStart(CardDto card)
     {
         _dragging = card;
-        _dragSource = (card.ColumnId, card.Position);
     }
 
     void OnCardDragEnd() => _dragging = null;
