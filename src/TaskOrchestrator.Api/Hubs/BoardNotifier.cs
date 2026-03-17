@@ -24,4 +24,7 @@ public sealed class BoardNotifier(IHubContext<TaskHub> hub) : IBoardNotifier
 
     public Task PresenceChangedAsync(int boardId, BoardPresenceSnapshot snapshot) =>
         Group(boardId).SendAsync(TaskHub.PresenceChanged, snapshot);
+
+    public Task MemberKickedAsync(int boardId, string kickedUserId) =>
+        Group(boardId).SendAsync(TaskHub.MemberKicked, new { boardId, kickedUserId });
 }

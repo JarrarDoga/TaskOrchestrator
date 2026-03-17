@@ -1,0 +1,67 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── Client → Vercel ────────────────────────────────────────────────────────
+  deploy-client:
+    name: Client → Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Stamp the production API URL + Auth0 config into the static config file
+      - name: Write production appsettings
+        run: |
+          cat > src/TaskOrchestrator.Client/wwwroot/appsettings.json << 'EOF'
+          {
+            "ApiBaseUrl": "${{ secrets.PRODUCTION_API_URL }}",
+            "Auth0": {
+              "Authority": "https://dev-1a2cx08ksfvxqxy0.us.auth0.com",
+              "ClientId": "PySo12BvRscr3yWK0eG3aY5DQZyx9TFs",
+              "Audience": "https://api.taskorchestrator.io",
+              "Scope": "openid profile email",
+              "MetadataUrl": "https://dev-1a2cx08ksfvxqxy0.us.auth0.com/.well-known/openid-configuration",
+              "DefaultScopes": [ "openid", "profile", "email" ]
+            }
+          }
+          EOF
+
+      - name: Publish client
+        run: |
+          dotnet publish src/TaskOrchestrator.Client/TaskOrchestrator.Client.csproj \
+            -c Release -o published
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      # Pull project settings (.vercel/project.json) so we can deploy --prebuilt
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel
+        run: vercel deploy published/wwwroot --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # ── API → Railway ──────────────────────────────────────────────────────────
+  # Railway watches this repo directly and redeploys automatically on push to
+  # main using the Dockerfile. No workflow step needed — this job just records
+  # the deployment in the GitHub Actions log for visibility.
+  notify-railway:
+    name: API → Railway (auto)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Railway deploys automatically
+        run: echo "Railway is watching this repo. API deployment triggered by push to main."

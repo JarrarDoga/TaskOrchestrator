@@ -1,25 +1,162 @@
 @page "/"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager Nav
 
-<PageTitle>Task Orchestrator</PageTitle>
+<PageTitle>Boards — Task Orchestrator</PageTitle>
 
-<div class="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-    <div class="text-center">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">Real-time Collaborative</p>
-        <h1 class="text-3xl font-bold text-zinc-100 tracking-tight">Task Orchestrator</h1>
-        <p class="mt-2 text-zinc-500 text-sm max-w-sm mx-auto">
-            Kanban boards with live collaboration, conflict resolution, and file attachments.
-        </p>
+<div class="flex flex-1 flex-col p-8 max-w-2xl mx-auto w-full">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Your Boards</h1>
+        <button @onclick="() => _showCreate = true"
+                class="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs
+                       text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 transition-colors">
+            + New Board
+        </button>
     </div>
 
-    <a href="board/1"
-       class="inline-flex items-center gap-2 rounded border border-blue-700 bg-blue-900/30 px-5 py-2.5
-              text-sm text-blue-300 hover:bg-blue-900/50 transition-colors">
-        Open Demo Board →
-    </a>
+    @if (_loading)
+    {
+        <p class="text-zinc-600 text-sm">Loading…</p>
+    }
+    else if (_boards.Count == 0)
+    {
+        <p class="text-zinc-600 text-sm">No boards yet. Create one to get started.</p>
+    }
+    else
+    {
+        <ul class="flex flex-col gap-2">
+            @foreach (var b in _boards)
+            {
+                <li>
+                    <a href="board/@b.Id"
+                       class="flex items-center justify-between rounded border border-zinc-800
+                              bg-zinc-900 px-4 py-3 hover:border-zinc-700 hover:bg-zinc-800/60
+                              transition-colors group">
+                        <span class="text-sm text-zinc-200 group-hover:text-zinc-100">@b.Name</span>
+                        <span class="text-xs text-zinc-600 group-hover:text-zinc-500">Open →</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
 
-    <div class="mt-4 grid grid-cols-3 gap-4 text-center text-xs text-zinc-600 max-w-sm">
-        <div><p class="text-zinc-400 font-medium">Live updates</p><p>SignalR per-board groups</p></div>
-        <div><p class="text-zinc-400 font-medium">No overwrites</p><p>Optimistic concurrency</p></div>
-        <div><p class="text-zinc-400 font-medium">Attachments</p><p>Drag, paste, or pick</p></div>
+    @if (_showCreate)
+    {
+        <div class="mt-6 rounded border border-zinc-700 bg-zinc-900 p-4">
+            <p class="text-xs text-zinc-500 mb-2 uppercase tracking-widest">New board</p>
+            <div class="flex gap-2">
+                <input @bind="_newName" @bind:event="oninput"
+                       @onkeydown="OnKeyDown"
+                       placeholder="Board name"
+                       class="flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5
+                              text-sm text-zinc-100 placeholder-zinc-600
+                              focus:border-blue-600 focus:outline-none" />
+                <button @onclick="CreateBoard"
+                        disabled="@_creating"
+                        class="rounded border border-blue-700 bg-blue-900/30 px-4 py-1.5
+                               text-xs text-blue-300 hover:bg-blue-900/50 transition-colors
+                               disabled:opacity-50">
+                    Create
+                </button>
+                <button @onclick="() => _showCreate = false"
+                        class="rounded border border-zinc-700 px-3 py-1.5 text-xs
+                               text-zinc-500 hover:text-zinc-300 transition-colors">
+                    Cancel
+                </button>
+            </div>
+            @if (_createError is not null)
+            {
+                <p class="mt-2 text-xs text-red-400">@_createError</p>
+            }
+        </div>
+    }
+
+    <div class="mt-8 border-t border-zinc-800 pt-6">
+        <p class="text-xs text-zinc-600 mb-2">Have an invite code?</p>
+        <div class="flex gap-2">
+            <input @bind="_joinCode" @bind:event="oninput"
+                   placeholder="XXXX-XXXX"
+                   class="w-36 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5
+                          text-sm text-zinc-100 placeholder-zinc-600 uppercase tracking-widest
+                          focus:border-blue-600 focus:outline-none" />
+            <button @onclick="JoinByCode"
+                    class="rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs
+                           text-zinc-300 hover:border-zinc-600 transition-colors">
+                Join
+            </button>
+        </div>
+        @if (_joinError is not null)
+        {
+            <p class="mt-2 text-xs text-red-400">@_joinError</p>
+        }
     </div>
 </div>
+
+@code {
+    List<BoardDto> _boards = [];
+    bool _loading = true;
+
+    bool _showCreate;
+    string _newName = "";
+    bool _creating;
+    string? _createError;
+
+    string _joinCode = "";
+    string? _joinError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
+        _boards  = result ?? [];
+        _loading = false;
+    }
+
+    async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await CreateBoard();
+        if (e.Key == "Escape") _showCreate = false;
+    }
+
+    async Task CreateBoard()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) { _createError = "Name is required."; return; }
+        _creating = true;
+        _createError = null;
+        var resp = await Http.PostAsJsonAsync("/api/boards", new CreateBoardRequest(_newName.Trim(), null));
+        if (resp.IsSuccessStatusCode)
+        {
+            var board = await resp.Content.ReadFromJsonAsync<BoardDto>();
+            if (board is not null)
+                Nav.NavigateTo($"/board/{board.Id}");
+        }
+        else
+        {
+            _createError = $"Failed to create board ({(int)resp.StatusCode}).";
+            _creating = false;
+        }
+    }
+
+    async Task JoinByCode()
+    {
+        _joinError = null;
+        var code = _joinCode.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        var resp = await Http.PostAsync($"/api/join/{code}", null);
+        if (resp.IsSuccessStatusCode)
+        {
+            var data = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            if (data.TryGetProperty("boardId", out var idEl))
+                Nav.NavigateTo($"/board/{idEl.GetInt32()}");
+        }
+        else if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _joinError = "Invite code is invalid, expired, or exhausted.";
+        }
+        else
+        {
+            _joinError = $"Error {(int)resp.StatusCode}.";
+        }
+    }
+}

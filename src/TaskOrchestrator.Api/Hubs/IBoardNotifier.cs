@@ -12,4 +12,5 @@ public interface IBoardNotifier
     Task AttachmentAddedAsync(int boardId, int cardId, AttachmentDto attachment);
     Task ActivityAppendedAsync(int boardId, ActivityEventDto activity);
     Task PresenceChangedAsync(int boardId, BoardPresenceSnapshot snapshot);
+    Task MemberKickedAsync(int boardId, string kickedUserId);
 }

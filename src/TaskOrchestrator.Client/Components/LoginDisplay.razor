@@ -1,0 +1,43 @@
+<AuthorizeView>
+    <Authorized>
+        <div class="flex items-center gap-2">
+            @if (_avatarUrl is not null)
+            {
+                <img src="@_avatarUrl" alt="avatar"
+                     class="h-6 w-6 rounded-full object-cover ring-1 ring-zinc-700" />
+            }
+            <span class="text-xs text-zinc-300 truncate max-w-[8rem]">@_displayName</span>
+            <button @onclick="Logout"
+                    class="text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
+                Sign out
+            </button>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <button @onclick="Login"
+                class="text-xs text-zinc-400 hover:text-zinc-100 transition-colors">
+            Sign in
+        </button>
+    </NotAuthorized>
+</AuthorizeView>
+
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+@code {
+    string? _displayName;
+    string? _avatarUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var user = state.User;
+        _displayName = user.FindFirst("name")?.Value
+                    ?? user.FindFirst("nickname")?.Value
+                    ?? user.Identity?.Name;
+        _avatarUrl   = user.FindFirst("picture")?.Value;
+    }
+
+    void Login()  => Nav.NavigateToLogin("authentication/login");
+    void Logout() => Nav.NavigateToLogout("authentication/logout");
+}

@@ -6,11 +6,18 @@ namespace TaskOrchestrator.Api.Persistence;
 
 public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
 {
-    public async Task<IEnumerable<BoardDto>> GetAllAsync()
+    public async Task<IEnumerable<BoardDto>> GetByUserAsync(string userId)
     {
         using var conn = db.CreateConnection();
         return await conn.QueryAsync<BoardDto>(
-            "SELECT Id, Name, Description, CreatedAt, Version FROM Boards ORDER BY CreatedAt DESC");
+            """
+            SELECT b.Id, b.Name, b.Description, b.CreatedAt, b.Version
+            FROM Boards b
+            INNER JOIN BoardMembers bm ON bm.BoardId = b.Id
+            WHERE bm.UserId = @UserId
+            ORDER BY bm.JoinedAt DESC
+            """,
+            new { UserId = userId });
     }
 
     public async Task<BoardDetailDto?> GetDetailAsync(int boardId)
@@ -67,15 +74,22 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
             board.CreatedAt, board.Version, columnsWithCards);
     }
 
-    public async Task<BoardDto> CreateAsync(CreateBoardRequest request)
+    public async Task<BoardDto> CreateAsync(CreateBoardRequest request, string ownerUserId)
     {
         using var conn = db.CreateConnection();
+        // Board + owner membership in one logical unit. Not wrapped in an explicit
+        // transaction here because LAST_INSERT_ID() is session-scoped and the two
+        // inserts are fast; add a transaction if you need strict atomicity.
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Boards (Name, Description) VALUES (@Name, @Description);
             SELECT LAST_INSERT_ID();
             """,
             new { request.Name, request.Description });
+
+        await conn.ExecuteAsync(
+            "INSERT INTO BoardMembers (BoardId, UserId, Role) VALUES (@BoardId, @UserId, 'Owner')",
+            new { BoardId = id, UserId = ownerUserId });
 
         return await conn.QuerySingleAsync<BoardDto>(
             "SELECT Id, Name, Description, CreatedAt, Version FROM Boards WHERE Id = @Id",

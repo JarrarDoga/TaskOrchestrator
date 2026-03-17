@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using TaskOrchestrator.Api.Features;
 using TaskOrchestrator.Api.Hubs;
 using TaskOrchestrator.Api.Persistence.Repositories;
+using TaskOrchestrator.Api.Services;
 using TaskOrchestrator.Shared.Contracts;
 using TaskOrchestrator.Shared.Enums;
 
@@ -10,7 +12,7 @@ public static class CardEndpoints
 {
     public static IEndpointRouteBuilder MapCardEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api").WithTags("Cards");
+        var group = app.MapGroup("/api").WithTags("Cards").RequireAuthorization();
 
         group.MapGet("/boards/{boardId:int}/cards",    GetByBoard);
         group.MapGet("/cards/{cardId:int}",            GetById);
@@ -23,36 +25,49 @@ public static class CardEndpoints
         return app;
     }
 
-    static async Task<IResult> GetByBoard(int boardId, ICardRepository repo) =>
-        Results.Ok(await repo.GetByBoardAsync(boardId));
-
-    static async Task<IResult> GetActivity(int cardId, IActivityRepository activity) =>
-        Results.Ok(await activity.GetByCardAsync(cardId));
-
-    static async Task<IResult> GetById(int cardId, ICardRepository repo)
+    static async Task<IResult> GetByBoard(
+        int boardId, IUserContext user, IBoardMemberRepository members, ICardRepository cards)
     {
-        var card = await repo.GetByIdAsync(cardId);
-        return card is null ? Results.NotFound() : Results.Ok(card);
+        if (await Guard.RequireMemberAsync(boardId, user, members) is { } err) return err;
+        return Results.Ok(await cards.GetByBoardAsync(boardId));
+    }
+
+    static async Task<IResult> GetById(
+        int cardId, IUserContext user, IBoardMemberRepository members, ICardRepository cards)
+    {
+        var card = await cards.GetByIdAsync(cardId);
+        if (card is null) return Results.NotFound();
+        if (await Guard.RequireMemberAsync(card.BoardId, user, members) is { } err) return err;
+        return Results.Ok(card);
+    }
+
+    static async Task<IResult> GetActivity(
+        int cardId, IUserContext user, IBoardMemberRepository members,
+        ICardRepository cards, IActivityRepository activity)
+    {
+        var card = await cards.GetByIdAsync(cardId);
+        if (card is null) return Results.NotFound();
+        if (await Guard.RequireMemberAsync(card.BoardId, user, members) is { } err) return err;
+        return Results.Ok(await activity.GetByCardAsync(cardId));
     }
 
     static async Task<IResult> Create(
         [FromBody] CreateCardRequest req,
-        ICardRepository cards,
-        IActivityRepository activity,
-        IBoardNotifier notifier)
+        IUserContext user, IBoardMemberRepository members,
+        ICardRepository cards, IActivityRepository activity, IBoardNotifier notifier)
     {
         if (string.IsNullOrWhiteSpace(req.Title))
             return Results.ValidationProblem(new Dictionary<string, string[]>
                 { ["Title"] = ["Title is required."] });
 
-        // userId would come from HttpContext.User once auth is wired up
-        var card = await cards.CreateAsync(req, userId: null);
+        if (await Guard.RequireMemberAsync(req.BoardId, user, members) is { } err) return err;
 
+        var card = await cards.CreateAsync(req, user.UserId);
         await activity.AppendAsync(card.Id, card.BoardId, ActivityEventType.CardCreated,
-            null, null, $"Card \"{card.Title}\" created");
+            user.UserId, user.DisplayName, $"Card \"{card.Title}\" created");
 
         var evt = new ActivityEventDto(0, card.Id, card.BoardId, ActivityEventType.CardCreated,
-            null, null, $"Card \"{card.Title}\" created", DateTime.UtcNow);
+            user.UserId, user.DisplayName, $"Card \"{card.Title}\" created", DateTime.UtcNow);
 
         await notifier.CardCreatedAsync(card.BoardId, card);
         await notifier.ActivityAppendedAsync(card.BoardId, evt);
@@ -61,16 +76,15 @@ public static class CardEndpoints
     }
 
     static async Task<IResult> Update(
-        int cardId,
-        [FromBody] UpdateCardRequest req,
-        ICardRepository cards,
-        IActivityRepository activity,
-        IBoardNotifier notifier)
+        int cardId, [FromBody] UpdateCardRequest req,
+        IUserContext user, IBoardMemberRepository members,
+        ICardRepository cards, IActivityRepository activity, IBoardNotifier notifier)
     {
         var existing = await cards.GetByIdAsync(cardId);
         if (existing is null) return Results.NotFound();
+        if (await Guard.RequireMemberAsync(existing.BoardId, user, members) is { } err) return err;
 
-        var updated = await cards.UpdateAsync(cardId, req, userId: null);
+        var updated = await cards.UpdateAsync(cardId, req, user.UserId);
         if (updated is null)
         {
             var snapshot = await cards.GetByIdAsync(cardId);
@@ -80,23 +94,21 @@ public static class CardEndpoints
         }
 
         await activity.AppendAsync(updated.Id, updated.BoardId, ActivityEventType.CardUpdated,
-            null, null, $"Card \"{updated.Title}\" updated");
-
+            user.UserId, user.DisplayName, $"Card \"{updated.Title}\" updated");
         await notifier.CardUpdatedAsync(updated.BoardId, updated);
         return Results.Ok(updated);
     }
 
     static async Task<IResult> Move(
-        int cardId,
-        [FromBody] MoveCardRequest req,
-        ICardRepository cards,
-        IActivityRepository activity,
-        IBoardNotifier notifier)
+        int cardId, [FromBody] MoveCardRequest req,
+        IUserContext user, IBoardMemberRepository members,
+        ICardRepository cards, IActivityRepository activity, IBoardNotifier notifier)
     {
         var existing = await cards.GetByIdAsync(cardId);
         if (existing is null) return Results.NotFound();
+        if (await Guard.RequireMemberAsync(existing.BoardId, user, members) is { } err) return err;
 
-        var updated = await cards.MoveAsync(cardId, req, userId: null);
+        var updated = await cards.MoveAsync(cardId, req, user.UserId);
         if (updated is null)
         {
             var snapshot = await cards.GetByIdAsync(cardId);
@@ -106,26 +118,22 @@ public static class CardEndpoints
         }
 
         await activity.AppendAsync(updated.Id, updated.BoardId, ActivityEventType.CardMoved,
-            null, null, $"Card \"{updated.Title}\" moved to column {updated.ColumnId}");
-
+            user.UserId, user.DisplayName, $"Card \"{updated.Title}\" moved");
         await notifier.CardUpdatedAsync(updated.BoardId, updated);
         return Results.Ok(updated);
     }
 
     static async Task<IResult> Delete(
-        int cardId,
-        ICardRepository cards,
-        IActivityRepository activity,
-        IBoardNotifier notifier)
+        int cardId, IUserContext user, IBoardMemberRepository members,
+        ICardRepository cards, IActivityRepository activity, IBoardNotifier notifier)
     {
         var existing = await cards.GetByIdAsync(cardId);
         if (existing is null) return Results.NotFound();
+        if (await Guard.RequireMemberAsync(existing.BoardId, user, members) is { } err) return err;
 
         await cards.DeleteAsync(cardId);
-
         await activity.AppendAsync(existing.Id, existing.BoardId, ActivityEventType.CardDeleted,
-            null, null, $"Card \"{existing.Title}\" deleted");
-
+            user.UserId, user.DisplayName, $"Card \"{existing.Title}\" deleted");
         await notifier.CardDeletedAsync(existing.BoardId, cardId);
         return Results.NoContent();
     }

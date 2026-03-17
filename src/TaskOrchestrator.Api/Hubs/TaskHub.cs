@@ -13,6 +13,7 @@ public sealed class TaskHub : Hub
     public const string AttachmentAdded   = nameof(AttachmentAdded);
     public const string ActivityAppended  = nameof(ActivityAppended);
     public const string PresenceChanged   = nameof(PresenceChanged);
+    public const string MemberKicked      = nameof(MemberKicked);
 
     // Presence: board-id → connection-id → UserPresenceDto
     // In-memory only; reset on app restart. Fine for a single-node deployment.
