@@ -1,0 +1,84 @@
+@using TaskOrchestrator.Shared.Contracts
+@using TaskOrchestrator.Shared.Enums
+
+<div class="group relative rounded border @BorderClass bg-zinc-800 px-3 py-2.5 cursor-grab active:cursor-grabbing
+            hover:border-zinc-600 transition-all duration-150 select-none @(IsDragging ? "opacity-40 scale-95" : "")"
+     draggable="true"
+     @ondragstart="OnDragStart"
+     @ondragend="OnDragEnd"
+     @onclick="OnClick">
+
+    @* Priority stripe *@
+    <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l @PriorityColor"></div>
+
+    <div class="pl-1.5">
+        <p class="text-zinc-100 font-medium leading-snug line-clamp-2">@Card.Title</p>
+
+        @if (!string.IsNullOrWhiteSpace(Card.Description))
+        {
+            <p class="mt-1 text-xs text-zinc-500 line-clamp-1">@Card.Description</p>
+        }
+
+        <div class="mt-2 flex items-center gap-2 flex-wrap">
+            @* Labels from metadata *@
+            @if (Labels.Any())
+            {
+                @foreach (var label in Labels.Take(3))
+                {
+                    <span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-400">@label</span>
+                }
+            }
+
+            <div class="ml-auto flex items-center gap-1.5 text-zinc-600">
+                @if (Card.Attachments.Any())
+                {
+                    <span class="text-[10px]" title="@Card.Attachments.Count attachment(s)">
+                        ⊟ @Card.Attachments.Count
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(Card.AssignedToUserId))
+                {
+                    <span class="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-[9px] text-zinc-400"
+                          title="@Card.AssignedToUserId">
+                        @Card.AssignedToUserId[..1].ToUpper()
+                    </span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CardDto Card { get; set; } = null!;
+    [Parameter] public bool IsDragging { get; set; }
+    [Parameter] public EventCallback<CardDto> OnDragStarted { get; set; }
+    [Parameter] public EventCallback OnDragEnded { get; set; }
+    [Parameter] public EventCallback<CardDto> OnCardClicked { get; set; }
+
+    string BorderClass => IsDragging ? "border-blue-500/40" : "border-zinc-700";
+
+    string PriorityColor => Card.Priority switch
+    {
+        TaskPriority.Critical => "bg-red-500",
+        TaskPriority.High     => "bg-orange-500",
+        TaskPriority.Medium   => "bg-blue-500",
+        _                     => "bg-zinc-700"
+    };
+
+    IEnumerable<string> Labels
+    {
+        get
+        {
+            if (Card.Metadata.TryGetValue("labels", out var el)
+                && el.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in el.EnumerateArray())
+                    yield return item.GetString() ?? "";
+            }
+        }
+    }
+
+    async Task OnDragStart(DragEventArgs e) => await OnDragStarted.InvokeAsync(Card);
+    async Task OnDragEnd(DragEventArgs e)   => await OnDragEnded.InvokeAsync();
+    async Task OnClick()                    => await OnCardClicked.InvokeAsync(Card);
+}

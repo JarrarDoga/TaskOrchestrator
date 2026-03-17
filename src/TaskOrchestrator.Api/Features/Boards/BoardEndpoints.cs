@@ -10,10 +10,11 @@ public static class BoardEndpoints
     {
         var group = app.MapGroup("/api/boards").WithTags("Boards");
 
-        group.MapGet("/",         GetAll);
-        group.MapGet("/{id:int}", GetDetail);
-        group.MapPost("/",        Create);
-        group.MapDelete("/{id:int}", Delete);
+        group.MapGet("/",                    GetAll);
+        group.MapGet("/{id:int}",            GetDetail);
+        group.MapGet("/{id:int}/activity",   GetActivity);
+        group.MapPost("/",                   Create);
+        group.MapDelete("/{id:int}",         Delete);
 
         return app;
     }
@@ -36,6 +37,9 @@ public static class BoardEndpoints
         var board = await repo.CreateAsync(req);
         return Results.Created($"/api/boards/{board.Id}", board);
     }
+
+    static async Task<IResult> GetActivity(int id, IActivityRepository activity) =>
+        Results.Ok(await activity.GetByBoardAsync(id));
 
     static async Task<IResult> Delete(int id, IBoardRepository repo) =>
         await repo.DeleteAsync(id) ? Results.NoContent() : Results.NotFound();

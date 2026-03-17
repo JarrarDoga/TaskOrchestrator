@@ -12,18 +12,22 @@ public static class CardEndpoints
     {
         var group = app.MapGroup("/api").WithTags("Cards");
 
-        group.MapGet("/boards/{boardId:int}/cards", GetByBoard);
-        group.MapGet("/cards/{cardId:int}",         GetById);
-        group.MapPost("/cards",                     Create);
-        group.MapPatch("/cards/{cardId:int}",       Update);
-        group.MapPost("/cards/{cardId:int}/move",   Move);
-        group.MapDelete("/cards/{cardId:int}",      Delete);
+        group.MapGet("/boards/{boardId:int}/cards",    GetByBoard);
+        group.MapGet("/cards/{cardId:int}",            GetById);
+        group.MapGet("/cards/{cardId:int}/activity",   GetActivity);
+        group.MapPost("/cards",                        Create);
+        group.MapPatch("/cards/{cardId:int}",          Update);
+        group.MapPost("/cards/{cardId:int}/move",      Move);
+        group.MapDelete("/cards/{cardId:int}",         Delete);
 
         return app;
     }
 
     static async Task<IResult> GetByBoard(int boardId, ICardRepository repo) =>
         Results.Ok(await repo.GetByBoardAsync(boardId));
+
+    static async Task<IResult> GetActivity(int cardId, IActivityRepository activity) =>
+        Results.Ok(await activity.GetByCardAsync(cardId));
 
     static async Task<IResult> GetById(int cardId, ICardRepository repo)
     {

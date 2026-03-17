@@ -1,0 +1,21 @@
+@using TaskOrchestrator.Shared.Contracts
+
+<div class="flex -space-x-1.5">
+    @foreach (var user in Users.Take(6))
+    {
+        <div class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-700 text-xs font-bold text-zinc-300"
+             title="@user.DisplayName">
+            @user.DisplayName[..1].ToUpper()
+        </div>
+    }
+    @if (Users.Count > 6)
+    {
+        <div class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-700 text-xs text-zinc-400">
+            +@(Users.Count - 6)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<UserPresenceDto> Users { get; set; } = [];
+}

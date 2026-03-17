@@ -32,6 +32,34 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/ActivityFeed.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBY3Rpdml0eUZlZWQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/CardDetailDrawer.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xDYXJkRGV0YWlsRHJhd2VyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/CardItem.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xDYXJkSXRlbS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/ConflictDialog.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xDb25mbGljdERpYWxvZy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/ConnectionStatus.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xDb25uZWN0aW9uU3RhdHVzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/KanbanColumn.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xLYW5iYW5Db2x1bW4ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Components/PresenceAvatars.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQcmVzZW5jZUF2YXRhcnMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/jarra/OneDrive/Desktop/Coding/taskOrchestrator/src/TaskOrchestrator.Client/Pages/Board.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQm9hcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 

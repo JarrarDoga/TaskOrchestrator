@@ -1,0 +1,52 @@
+@using TaskOrchestrator.Shared.Contracts
+@using TaskOrchestrator.Shared.Enums
+
+<div class="flex flex-col gap-0.5 overflow-y-auto">
+    @if (!Events.Any())
+    {
+        <p class="text-xs text-zinc-600 py-2">No activity yet.</p>
+    }
+    else
+    {
+        @foreach (var evt in Events.Take(30))
+        {
+            <div class="flex gap-2 py-1.5 border-b border-zinc-800/60 last:border-0">
+                <span class="mt-0.5 text-xs @IconColor(evt.EventType) flex-shrink-0">@Icon(evt.EventType)</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs text-zinc-300 truncate">@evt.Description</p>
+                    <p class="text-[10px] text-zinc-600">
+                        @evt.OccurredAtUtc.ToString("HH:mm")
+                        @if (!string.IsNullOrEmpty(evt.UserDisplayName))
+                        {
+                            <span> · @evt.UserDisplayName</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ActivityEventDto> Events { get; set; } = [];
+
+    static string Icon(ActivityEventType t) => t switch
+    {
+        ActivityEventType.CardCreated    => "✦",
+        ActivityEventType.CardUpdated    => "✎",
+        ActivityEventType.CardMoved      => "→",
+        ActivityEventType.CardDeleted    => "✕",
+        ActivityEventType.AttachmentAdded => "⊟",
+        _ => "·"
+    };
+
+    static string IconColor(ActivityEventType t) => t switch
+    {
+        ActivityEventType.CardCreated    => "text-emerald-500",
+        ActivityEventType.CardUpdated    => "text-blue-400",
+        ActivityEventType.CardMoved      => "text-yellow-500",
+        ActivityEventType.CardDeleted    => "text-red-500",
+        ActivityEventType.AttachmentAdded => "text-purple-400",
+        _ => "text-zinc-500"
+    };
+}

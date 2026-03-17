@@ -2,14 +2,24 @@
 
 <PageTitle>Task Orchestrator</PageTitle>
 
-<div class="p-8">
-    <h1 class="text-3xl font-bold text-gray-800 mb-2">Task Orchestrator</h1>
-    <p class="text-gray-500">Real-time collaborative kanban board.</p>
+<div class="flex flex-1 flex-col items-center justify-center gap-6 p-8">
+    <div class="text-center">
+        <p class="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">Real-time Collaborative</p>
+        <h1 class="text-3xl font-bold text-zinc-100 tracking-tight">Task Orchestrator</h1>
+        <p class="mt-2 text-zinc-500 text-sm max-w-sm mx-auto">
+            Kanban boards with live collaboration, conflict resolution, and file attachments.
+        </p>
+    </div>
 
-    <div class="mt-8">
-        <a href="board"
-           class="inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-            Open Board
-        </a>
+    <a href="board/1"
+       class="inline-flex items-center gap-2 rounded border border-blue-700 bg-blue-900/30 px-5 py-2.5
+              text-sm text-blue-300 hover:bg-blue-900/50 transition-colors">
+        Open Demo Board →
+    </a>
+
+    <div class="mt-4 grid grid-cols-3 gap-4 text-center text-xs text-zinc-600 max-w-sm">
+        <div><p class="text-zinc-400 font-medium">Live updates</p><p>SignalR per-board groups</p></div>
+        <div><p class="text-zinc-400 font-medium">No overwrites</p><p>Optimistic concurrency</p></div>
+        <div><p class="text-zinc-400 font-medium">Attachments</p><p>Drag, paste, or pick</p></div>
     </div>
 </div>

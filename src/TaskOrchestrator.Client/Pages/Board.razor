@@ -1,113 +1,279 @@
+@page "/board/{BoardId:int}"
 @page "/board"
 @implements IAsyncDisposable
 @inject HttpClient Http
-@inject HubConnection HubConnection
+@inject IConfiguration Config
+@inject NavigationManager Nav
+
+@using System.Net.Http.Json
+@using TaskOrchestrator.Client.Components
+@using TaskOrchestrator.Client.Services
+@using TaskOrchestrator.Shared.Contracts
 
 <PageTitle>Board — Task Orchestrator</PageTitle>
 
-<div class="p-6">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">Board</h2>
+@* Board header *@
+<header class="flex flex-shrink-0 items-center gap-4 border-b border-zinc-800 bg-zinc-900 px-4 py-2.5">
+    <div class="flex-1 min-w-0">
+        <h1 class="truncate text-sm font-semibold text-zinc-200">
+            @(_state.Board?.Name ?? "Loading...")
+        </h1>
+    </div>
+    <PresenceAvatars Users="_state.ActiveUsers" />
+    <ConnectionStatus State="_signalR.State" />
+</header>
 
-    @if (_loading)
+@* Error banner *@
+@if (_state.LoadError is not null)
+{
+    <div class="border-b border-red-900 bg-red-950/40 px-4 py-2 text-xs text-red-400">
+        ⚠ Failed to load board: @_state.LoadError
+    </div>
+}
+
+@* Board canvas *@
+<div class="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 py-3">
+    @if (_state.IsLoading)
     {
-        <p class="text-gray-500">Loading tasks...</p>
-    }
-    else if (_error is not null)
-    {
-        <p class="text-red-600">@_error</p>
-    }
-    else
-    {
-        <div class="flex gap-4 overflow-x-auto pb-4">
-            @foreach (var status in Enum.GetValues<TaskItemStatus>())
-            {
-                <div class="flex w-64 flex-shrink-0 flex-col rounded-lg bg-white shadow">
-                    <div class="border-b px-4 py-3">
-                        <span class="font-semibold text-gray-700">@status</span>
-                        <span class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                            @_tasks.Count(t => t.Status == status)
-                        </span>
-                    </div>
-                    <div class="flex flex-col gap-2 p-3 min-h-[8rem]">
-                        @foreach (var task in _tasks.Where(t => t.Status == status).OrderBy(t => t.Position))
-                        {
-                            <div class="rounded border bg-gray-50 p-3 text-sm shadow-sm">
-                                <p class="font-medium text-gray-800">@task.Title</p>
-                                @if (!string.IsNullOrWhiteSpace(task.Description))
-                                {
-                                    <p class="mt-1 text-xs text-gray-500 line-clamp-2">@task.Description</p>
-                                }
-                                <span class="mt-2 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                                    @task.Priority
-                                </span>
-                            </div>
-                        }
-                    </div>
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="w-72 flex-shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 animate-pulse">
+                <div class="h-10 border-b border-zinc-800"></div>
+                <div class="p-2 flex flex-col gap-2">
+                    <div class="h-14 rounded bg-zinc-800"></div>
+                    <div class="h-14 rounded bg-zinc-800"></div>
+                    <div class="h-10 rounded bg-zinc-800 opacity-50"></div>
                 </div>
-            }
-        </div>
+            </div>
+        }
+    }
+    else if (_state.Board is not null)
+    {
+        @foreach (var col in _state.Board.Columns.OrderBy(c => c.Position))
+        {
+            <KanbanColumn Column="col"
+                          DraggingCardId="_dragging?.Id"
+                          OnDragStarted="OnCardDragStart"
+                          OnDragEnded="OnCardDragEnd"
+                          OnDropped="@(args => OnDrop(col.Id, args.Item2))"
+                          CardClicked="OnCardClicked"
+                          AddCardRequested="OnAddCardRequested" />
+        }
+    }
+
+    @* Activity sidebar — right edge *@
+    @if (_state.Board is not null && _showActivity)
+    {
+        <aside class="w-64 flex-shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 flex flex-col">
+            <div class="border-b border-zinc-800 px-3 py-2.5 flex items-center justify-between">
+                <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Activity</span>
+                <button class="text-zinc-600 hover:text-zinc-400 text-xs" @onclick='() => _showActivity = false'>✕</button>
+            </div>
+            <div class="p-3 flex-1 overflow-y-auto">
+                <ActivityFeed Events="_state.RecentActivity" />
+            </div>
+        </aside>
     }
 </div>
 
-@code {
-    // Board ID will become a route parameter once multi-board support is wired up.
-    private const int DefaultBoardId = 1;
+@* Add card quick form *@
+@if (_addingToColumnId.HasValue)
+{
+    <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60" @onclick="CancelAdd">
+        <div class="w-80 rounded-lg border border-zinc-700 bg-zinc-900 p-4 shadow-2xl" @onclick:stopPropagation>
+            <h3 class="mb-3 text-sm font-semibold text-zinc-200">New Card</h3>
+            <input class="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100
+                          focus:border-blue-500 focus:outline-none"
+                   placeholder="Card title"
+                   @bind="_newCardTitle"
+                   @bind:event="oninput"
+                   @onkeydown="OnNewCardKeyDown"
+                   @ref="_newCardInput" />
+            @if (_addError is not null)
+            {
+                <p class="mt-1 text-xs text-red-400">@_addError</p>
+            }
+            <div class="mt-3 flex gap-2 justify-end">
+                <button class="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                        @onclick="CancelAdd">Cancel</button>
+                <button class="rounded border border-blue-700 bg-blue-900/40 px-3 py-1.5 text-xs text-blue-300
+                               hover:bg-blue-900/60 transition-colors"
+                        @onclick="ConfirmAdd">Add</button>
+            </div>
+        </div>
+    </div>
+}
 
-    private List<TaskItemDto> _tasks = [];
-    private bool _loading = true;
-    private string? _error;
+@* Card detail drawer *@
+<CardDetailDrawer Card="_selectedCard"
+                  OnClosed="() => _selectedCard = null"
+                  OnSaved="OnCardSaved"
+                  OnAttachmentUploaded="OnAttachmentUploaded" />
+
+@* Conflict dialog *@
+<ConflictDialog Conflict="_state.PendingConflict"
+                Dismissed="OnConflictDismissed" />
+
+@* Activity toggle button *@
+@if (!_showActivity && _state.Board is not null)
+{
+    <button class="fixed bottom-4 right-4 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5
+                   text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 shadow-lg transition-colors"
+            @onclick='() => _showActivity = true'>
+        Activity (@_state.RecentActivity.Count)
+    </button>
+}
+
+@code {
+    [Parameter] public int BoardId { get; set; } = 1;
+
+    [Inject] private HttpClient HttpClient { get; set; } = null!;
+    [Inject] private IConfiguration Configuration { get; set; } = null!;
+
+    // Created in OnInitializedAsync so injected deps are available
+    BoardStateService _stateService = null!;
+    SignalRService _signalRService = null!;
+
+    // Convenience alias used in markup
+    BoardStateService _state => _stateService;
+    SignalRService _signalR => _signalRService;
+
+    CardDto? _dragging;
+    (int colId, int pos) _dragSource;
+    CardDto? _selectedCard;
+    int? _addingToColumnId;
+    string _newCardTitle = "";
+    string? _addError;
+    bool _showActivity = false;
+    ElementReference _newCardInput;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadTasksAsync();
-        await ConnectToHubAsync();
+        _stateService = new BoardStateService(HttpClient);
+        _signalRService = new SignalRService(Configuration);
+        _state.OnChange += StateHasChanged;
+        _signalR.OnStateChanged += StateHasChanged;
+
+        await _state.LoadBoardAsync(BoardId);
+
+        try { await _signalR.ConnectAsync(BoardId, _state); }
+        catch { /* Hub unavailable — board still works, just no live updates */ }
     }
 
-    private async Task LoadTasksAsync()
+    // Drag and drop
+    void OnCardDragStart(CardDto card)
     {
-        try
+        _dragging = card;
+        _dragSource = (card.ColumnId, card.Position);
+    }
+
+    void OnCardDragEnd() => _dragging = null;
+
+    async Task OnDrop(int targetColumnId, int targetPosition)
+    {
+        if (_dragging is null) return;
+        var card = _dragging;
+        _dragging = null;
+
+        if (card.ColumnId == targetColumnId && card.Position == targetPosition) return;
+
+        var (oldCol, oldPos) = _state.OptimisticMove(card.Id, targetColumnId, targetPosition);
+
+        var req = new MoveCardRequest(targetColumnId, targetPosition, card.Version);
+        var response = await HttpClient.PostAsJsonAsync($"/api/cards/{card.Id}/move", req);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
-            _tasks = await Http.GetFromJsonAsync<List<TaskItemDto>>(
-                $"/api/boards/{DefaultBoardId}/tasks") ?? [];
+            _state.RevertMove(card.Id, oldCol, oldPos);
+            var conflict = await response.Content.ReadFromJsonAsync<ConflictResponse<CardDto?>>();
+            _state.SetConflict(new ConflictInfo(
+                conflict?.Message ?? "Version conflict",
+                conflict?.ServerSnapshot,
+                card,
+                ConflictKind.Move));
         }
-        catch (Exception ex)
+        else if (!response.IsSuccessStatusCode)
         {
-            _error = $"Failed to load tasks: {ex.Message}";
+            _state.RevertMove(card.Id, oldCol, oldPos);
         }
-        finally
+        // On success: SignalR CardUpdated will sync the final state.
+    }
+
+    // Card detail
+    void OnCardClicked(CardDto card) => _selectedCard = card;
+
+    void OnCardSaved(CardDto updated)
+    {
+        _state.ApplyCardUpdated(updated);
+        _selectedCard = updated;
+    }
+
+    void OnAttachmentUploaded(AttachmentDto att)
+    {
+        _state.ApplyAttachmentAdded(_selectedCard!.Id, att);
+        _selectedCard = _selectedCard with
         {
-            _loading = false;
+            Attachments = new List<AttachmentDto>(_selectedCard.Attachments) { att }
+        };
+    }
+
+    // Add card
+    async Task OnAddCardRequested(int columnId)
+    {
+        _addingToColumnId = columnId;
+        _newCardTitle = "";
+        _addError = null;
+        await Task.Yield();
+        await _newCardInput.FocusAsync();
+    }
+
+    async Task OnNewCardKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ConfirmAdd();
+        if (e.Key == "Escape") CancelAdd();
+    }
+
+    async Task ConfirmAdd()
+    {
+        if (string.IsNullOrWhiteSpace(_newCardTitle))
+        {
+            _addError = "Title is required.";
+            return;
+        }
+        var req = new CreateCardRequest(BoardId, _addingToColumnId!.Value,
+            _newCardTitle.Trim(), null, Shared.Enums.TaskPriority.Medium);
+
+        var response = await HttpClient.PostAsJsonAsync("/api/cards", req);
+        if (response.IsSuccessStatusCode)
+        {
+            var card = await response.Content.ReadFromJsonAsync<CardDto>();
+            if (card is not null) _state.ApplyCardCreated(card);
+            _addingToColumnId = null;
+        }
+        else
+        {
+            _addError = $"Error {(int)response.StatusCode}";
         }
     }
 
-    private async Task ConnectToHubAsync()
+    void CancelAdd() => _addingToColumnId = null;
+
+    async Task OnConflictDismissed(ConflictResolution resolution)
     {
-        HubConnection.On<TaskItemDto>("TaskCreated", task =>
+        if (resolution == ConflictResolution.RetryWithServer
+            && _state.PendingConflict?.ServerSnapshot is { } snap)
         {
-            _tasks.Add(task);
-            InvokeAsync(StateHasChanged);
-        });
-
-        HubConnection.On<TaskItemDto>("TaskUpdated", updated =>
-        {
-            var index = _tasks.FindIndex(t => t.Id == updated.Id);
-            if (index >= 0) _tasks[index] = updated;
-            InvokeAsync(StateHasChanged);
-        });
-
-        HubConnection.On<object>("TaskDeleted", payload =>
-        {
-            // Payload contains { taskId, boardId } — full typed handling comes in the feature slice
-            InvokeAsync(StateHasChanged);
-        });
-
-        await HubConnection.StartAsync();
-        await HubConnection.SendAsync("JoinBoard", DefaultBoardId);
+            _state.ApplyCardUpdated(snap);
+        }
+        _state.ClearConflict();
+        await Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        await HubConnection.SendAsync("LeaveBoard", DefaultBoardId);
-        await HubConnection.DisposeAsync();
+        _state.OnChange -= StateHasChanged;
+        _signalR.OnStateChanged -= StateHasChanged;
+        await _signalR.DisconnectAsync(BoardId);
+        await _signalR.DisposeAsync();
     }
 }

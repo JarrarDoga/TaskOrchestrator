@@ -1,0 +1,82 @@
+@using TaskOrchestrator.Shared.Contracts
+
+<div class="flex w-72 flex-shrink-0 flex-col rounded-lg border @(IsDragOver ? "border-blue-500/60 bg-zinc-800/60" : "border-zinc-800 bg-zinc-900/60")
+            transition-colors duration-100 max-h-full"
+     @ondragover:preventDefault
+     @ondragover="OnDragOver"
+     @ondragleave="OnDragLeave"
+     @ondrop="OnDrop">
+
+    @* Column header *@
+    <div class="flex items-center gap-2 border-b border-zinc-800 px-3 py-2.5">
+        <span class="h-2 w-2 rounded-full flex-shrink-0" style="background-color: @Column.Color"></span>
+        <span class="font-semibold text-zinc-300 text-sm tracking-wide uppercase text-xs">@Column.Title</span>
+        <span class="ml-auto rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-500">@Column.Cards.Count</span>
+    </div>
+
+    @* Card list *@
+    <div class="flex flex-col gap-2 overflow-y-auto p-2 flex-1">
+        @if (IsLoadingSkeleton)
+        {
+            @for (int i = 0; i < 3; i++)
+            {
+                <div class="h-16 animate-pulse rounded border border-zinc-700 bg-zinc-800"></div>
+            }
+        }
+        else
+        {
+            @foreach (var card in Column.Cards.OrderBy(c => c.Position))
+            {
+                <CardItem Card="card"
+                          IsDragging="DraggingCardId == card.Id"
+                          OnDragStarted="OnCardDragStart"
+                          OnDragEnded="OnCardDragEnd"
+                          OnCardClicked="OnCardClicked" />
+            }
+
+            @* Drop target at bottom when column is empty or dragging over *@
+            @if (IsDragOver && !Column.Cards.Any())
+            {
+                <div class="h-16 rounded border border-dashed border-blue-500/40 bg-blue-500/5
+                            flex items-center justify-center text-xs text-blue-500/60">
+                    drop here
+                </div>
+            }
+        }
+    </div>
+
+    @* Add card button *@
+    <button class="mx-2 mb-2 rounded border border-dashed border-zinc-800 py-1.5 text-xs text-zinc-600
+                   hover:border-zinc-700 hover:text-zinc-400 transition-colors"
+            @onclick="OnAddCard">
+        + add card
+    </button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ColumnWithCardsDto Column { get; set; } = null!;
+    [Parameter] public int? DraggingCardId { get; set; }
+    [Parameter] public bool IsLoadingSkeleton { get; set; }
+    [Parameter] public EventCallback<CardDto> OnDragStarted { get; set; }
+    [Parameter] public EventCallback OnDragEnded { get; set; }
+    [Parameter] public EventCallback<(int ColumnId, int Position)> OnDropped { get; set; }
+    [Parameter] public EventCallback<CardDto> CardClicked { get; set; }
+    [Parameter] public EventCallback<int> AddCardRequested { get; set; }
+
+    bool IsDragOver;
+
+    void OnDragOver(DragEventArgs _)  => IsDragOver = true;
+    void OnDragLeave(DragEventArgs _) => IsDragOver = false;
+
+    async Task OnDrop(DragEventArgs _)
+    {
+        IsDragOver = false;
+        var pos = Column.Cards.Any() ? Column.Cards.Max(c => c.Position) + 1 : 0;
+        await OnDropped.InvokeAsync((Column.Id, pos));
+    }
+
+    async Task OnCardDragStart(CardDto card) => await OnDragStarted.InvokeAsync(card);
+    async Task OnCardDragEnd()               => await OnDragEnded.InvokeAsync();
+    async Task OnCardClicked(CardDto card)   => await CardClicked.InvokeAsync(card);
+    async Task OnAddCard()                   => await AddCardRequested.InvokeAsync(Column.Id);
+}

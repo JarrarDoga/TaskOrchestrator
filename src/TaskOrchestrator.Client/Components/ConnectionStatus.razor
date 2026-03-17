@@ -1,0 +1,33 @@
+@using Microsoft.AspNetCore.SignalR.Client
+
+<div class="flex items-center gap-1.5" title="@StatusLabel">
+    <span class="h-2 w-2 rounded-full @DotClass"></span>
+    <span class="text-xs @TextClass hidden sm:inline">@StatusLabel</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public HubConnectionState State { get; set; }
+
+    string DotClass => State switch
+    {
+        HubConnectionState.Connected    => "bg-emerald-500",
+        HubConnectionState.Connecting   => "bg-yellow-500 animate-pulse",
+        HubConnectionState.Reconnecting => "bg-yellow-500 animate-pulse",
+        _                               => "bg-zinc-600"
+    };
+
+    string TextClass => State switch
+    {
+        HubConnectionState.Connected => "text-emerald-500",
+        HubConnectionState.Reconnecting => "text-yellow-500",
+        _ => "text-zinc-500"
+    };
+
+    string StatusLabel => State switch
+    {
+        HubConnectionState.Connected    => "live",
+        HubConnectionState.Connecting   => "connecting",
+        HubConnectionState.Reconnecting => "reconnecting",
+        _                               => "offline"
+    };
+}
