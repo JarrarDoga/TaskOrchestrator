@@ -8,7 +8,16 @@ public record BoardDto(
     int Version
 );
 
-public record CreateBoardRequest(
+// Full board load — one round trip on page open
+public record BoardDetailDto(
+    int Id,
     string Name,
-    string? Description
+    string? Description,
+    DateTime CreatedAt,
+    int Version,
+    IReadOnlyList<ColumnWithCardsDto> Columns
 );
+
+public record CreateBoardRequest(string Name, string? Description);
+
+public record UpdateBoardRequest(string Name, string? Description, int Version);
