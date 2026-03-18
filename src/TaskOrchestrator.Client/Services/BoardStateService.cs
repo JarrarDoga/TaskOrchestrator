@@ -176,6 +176,22 @@ public sealed class BoardStateService(HttpClient http)
         NotifyChange();
     }
 
+    public void ApplyColumnCreated(ColumnDto col)
+    {
+        if (Board is null) return;
+        if (Board.Columns.Any(c => c.Id == col.Id)) return;
+        var newCol = new ColumnWithCardsDto(col.Id, col.BoardId, col.Title, col.Color, col.Position, []);
+        Board = Board with { Columns = Board.Columns.Append(newCol).ToList() };
+        NotifyChange();
+    }
+
+    public void ApplyColumnDeleted(int columnId)
+    {
+        if (Board is null) return;
+        Board = Board with { Columns = Board.Columns.Where(c => c.Id != columnId).ToList() };
+        NotifyChange();
+    }
+
     public void SetConflict(ConflictInfo conflict)
     {
         PendingConflict = conflict;

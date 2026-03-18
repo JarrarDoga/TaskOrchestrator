@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using TaskOrchestrator.Api.Features.Attachments;
 using TaskOrchestrator.Api.Features.Boards;
 using TaskOrchestrator.Api.Features.Cards;
+using TaskOrchestrator.Api.Features.Columns;
 using TaskOrchestrator.Api.Features.Me;
 using TaskOrchestrator.Api.Features.Members;
 using TaskOrchestrator.Api.Hubs;
@@ -60,6 +61,7 @@ builder.Services.AddScoped<IActivityRepository,    ActivityRepository>();
 builder.Services.AddScoped<IUserRepository,        UserRepository>();
 builder.Services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
 builder.Services.AddScoped<IInviteRepository,      InviteRepository>();
+builder.Services.AddScoped<IColumnRepository,      ColumnRepository>();
 
 // --- User context (reads JWT claims) ---
 builder.Services.AddScoped<IUserContext, UserContext>();
@@ -106,5 +108,6 @@ app.MapAttachmentEndpoints();
 app.MapMeEndpoints();
 app.MapMemberEndpoints();
 app.MapJoinEndpoint();
+app.MapColumnEndpoints();
 
 app.Run();

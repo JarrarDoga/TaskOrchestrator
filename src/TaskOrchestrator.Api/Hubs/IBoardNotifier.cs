@@ -13,4 +13,6 @@ public interface IBoardNotifier
     Task ActivityAppendedAsync(int boardId, ActivityEventDto activity);
     Task PresenceChangedAsync(int boardId, BoardPresenceSnapshot snapshot);
     Task MemberKickedAsync(int boardId, string kickedUserId);
+    Task ColumnCreatedAsync(int boardId, ColumnDto column);
+    Task ColumnDeletedAsync(int boardId, int columnId);
 }

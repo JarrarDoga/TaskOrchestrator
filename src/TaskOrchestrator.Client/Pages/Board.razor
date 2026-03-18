@@ -55,13 +55,59 @@
     {
         @foreach (var col in _state.Board.Columns.OrderBy(c => c.Position))
         {
-            <KanbanColumn Column="col"
-                          DraggingCardId="_dragging?.Id"
-                          OnDragStarted="OnCardDragStart"
-                          OnDragEnded="OnCardDragEnd"
-                          OnDropped="@(args => OnDrop(col.Id, args.Item2))"
-                          CardClicked="OnCardClicked"
-                          AddCardRequested="OnAddCardRequested" />
+            <div class="flex flex-col flex-shrink-0">
+                <KanbanColumn Column="col"
+                              DraggingCardId="_dragging?.Id"
+                              OnDragStarted="OnCardDragStart"
+                              OnDragEnded="OnCardDragEnd"
+                              OnDropped="@(args => OnDrop(col.Id, args.Item2))"
+                              CardClicked="OnCardClicked"
+                              AddCardRequested="OnAddCardRequested" />
+                <button class="mt-1 w-72 rounded border border-dashed border-zinc-800 py-1
+                               text-xs text-zinc-700 hover:border-red-900 hover:text-red-500 transition-colors"
+                        @onclick="() => DeleteColumn(col.Id)">
+                    Delete column
+                </button>
+            </div>
+        }
+
+        @* Add column inline form *@
+        @if (_showAddColumn)
+        {
+            <div class="w-72 flex-shrink-0 rounded-lg border border-zinc-700 bg-zinc-900 p-3 self-start">
+                <p class="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">New column</p>
+                <input class="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm
+                              text-zinc-100 focus:border-blue-500 focus:outline-none mb-2"
+                       placeholder="Column title"
+                       @bind="_newColumnTitle" @bind:event="oninput"
+                       @onkeydown="OnAddColumnKeyDown"
+                       @ref="_addColumnInput" />
+                <div class="flex items-center gap-2 mb-2">
+                    <label class="text-xs text-zinc-600">Color</label>
+                    <input type="color" @bind="_newColumnColor"
+                           class="h-6 w-8 cursor-pointer rounded border border-zinc-700 bg-zinc-800 p-0.5" />
+                </div>
+                @if (_addColumnError is not null)
+                {
+                    <p class="mb-1 text-xs text-red-400">@_addColumnError</p>
+                }
+                <div class="flex gap-2 justify-end">
+                    <button class="rounded border border-zinc-700 px-3 py-1 text-xs text-zinc-500
+                                   hover:text-zinc-300 transition-colors"
+                            @onclick="() => _showAddColumn = false">Cancel</button>
+                    <button class="rounded border border-blue-700 bg-blue-900/40 px-3 py-1 text-xs text-blue-300
+                                   hover:bg-blue-900/60 transition-colors"
+                            @onclick="ConfirmAddColumn">Add</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <button class="w-64 flex-shrink-0 rounded-lg border border-dashed border-zinc-800 py-4
+                           text-sm text-zinc-600 hover:border-zinc-700 hover:text-zinc-400 transition-colors self-start"
+                    @onclick="ShowAddColumn">
+                + Add column
+            </button>
         }
     }
 
@@ -142,6 +188,13 @@
     string? _addError;
     bool _showActivity = false;
     ElementReference _newCardInput;
+
+    // Add column
+    bool _showAddColumn;
+    string _newColumnTitle = "";
+    string _newColumnColor = "#3b82f6";
+    string? _addColumnError;
+    ElementReference _addColumnInput;
 
     protected override async Task OnInitializedAsync()
     {
@@ -281,6 +334,54 @@
     }
 
     void CancelAdd() => _addingToColumnId = null;
+
+    // Add / delete column
+    async Task ShowAddColumn()
+    {
+        _showAddColumn = true;
+        _newColumnTitle = "";
+        _addColumnError = null;
+        await Task.Yield();
+        await _addColumnInput.FocusAsync();
+    }
+
+    async Task OnAddColumnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ConfirmAddColumn();
+        if (e.Key == "Escape") _showAddColumn = false;
+    }
+
+    async Task ConfirmAddColumn()
+    {
+        if (string.IsNullOrWhiteSpace(_newColumnTitle))
+        {
+            _addColumnError = "Title is required.";
+            return;
+        }
+        var req = new CreateColumnRequest(BoardId, _newColumnTitle.Trim(), _newColumnColor);
+        var response = await HttpClient.PostAsJsonAsync($"/api/boards/{BoardId}/columns", req);
+        if (response.IsSuccessStatusCode)
+        {
+            var col = await response.Content.ReadFromJsonAsync<ColumnDto>();
+            if (col is not null && _signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+                _state.ApplyColumnCreated(col);
+            _showAddColumn = false;
+        }
+        else
+        {
+            _addColumnError = $"Error {(int)response.StatusCode}";
+        }
+    }
+
+    async Task DeleteColumn(int columnId)
+    {
+        var response = await HttpClient.DeleteAsync($"/api/boards/{BoardId}/columns/{columnId}");
+        if (response.IsSuccessStatusCode &&
+            _signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+        {
+            _state.ApplyColumnDeleted(columnId);
+        }
+    }
 
     async Task OnConflictDismissed(ConflictResolution resolution)
     {

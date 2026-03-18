@@ -14,6 +14,8 @@ public sealed class TaskHub : Hub
     public const string ActivityAppended  = nameof(ActivityAppended);
     public const string PresenceChanged   = nameof(PresenceChanged);
     public const string MemberKicked      = nameof(MemberKicked);
+    public const string ColumnCreated     = nameof(ColumnCreated);
+    public const string ColumnDeleted     = nameof(ColumnDeleted);
 
     // Presence: board-id → connection-id → UserPresenceDto
     // In-memory only; reset on app restart. Fine for a single-node deployment.

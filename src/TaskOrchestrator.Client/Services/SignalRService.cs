@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using Microsoft.AspNetCore.SignalR.Client;
+using System.Text.Json;
 using TaskOrchestrator.Shared.Contracts;
 
 namespace TaskOrchestrator.Client.Services;
@@ -43,6 +44,12 @@ public sealed class SignalRService(IConfiguration config, IAccessTokenProvider t
         _hub.On<object>("AttachmentAdded", raw => HandleAttachmentAdded(raw, state));
         _hub.On<ActivityEventDto>("ActivityAppended", state.AppendActivity);
         _hub.On<BoardPresenceSnapshot>("PresenceChanged", state.ApplyPresence);
+        _hub.On<ColumnDto>("ColumnCreated", state.ApplyColumnCreated);
+        _hub.On<object>("ColumnDeleted", raw =>
+        {
+            if (raw is JsonElement el && el.TryGetProperty("columnId", out var idEl))
+                state.ApplyColumnDeleted(idEl.GetInt32());
+        });
 
         if (onMemberKicked is not null)
         {
