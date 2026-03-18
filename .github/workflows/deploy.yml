@@ -43,10 +43,17 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          mkdir -p published/wwwroot/.vercel
-          echo '{"projectId":"${{ secrets.VERCEL_PROJECT_ID }}","orgId":"${{ secrets.VERCEL_ORG_ID }}"}' > published/wwwroot/.vercel/project.json
-          vercel --cwd published/wwwroot deploy . --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+          test -n "$VERCEL_TOKEN" || (echo "Missing VERCEL_TOKEN secret" && exit 1)
+          test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID secret" && exit 1)
+          test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID secret" && exit 1)
+          cd published/wwwroot
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel deploy --prod --token="$VERCEL_TOKEN" --yes
 
   # ── API → Railway ──────────────────────────────────────────────────────────
   # Railway watches this repo directly and redeploys automatically on push to
