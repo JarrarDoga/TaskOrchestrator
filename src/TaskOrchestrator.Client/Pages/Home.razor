@@ -107,6 +107,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Http.PostAsync("/api/me/sync", null);
         var result = await Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
         _boards  = result ?? [];
         _loading = false;
