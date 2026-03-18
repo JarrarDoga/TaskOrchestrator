@@ -1,10 +1,13 @@
 @using System.Net.Http.Json
 @using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using TaskOrchestrator.Shared.Contracts
 @using TaskOrchestrator.Shared.Enums
 
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject IAccessTokenProvider TokenProvider
+@inject IConfiguration Configuration
 
 @if (Card is not null)
 {
@@ -86,13 +89,13 @@
                     <div class="mt-2 flex flex-col gap-1">
                         @foreach (var att in Card.Attachments)
                         {
-                            <a href="@att.Url" target="_blank"
+                            <button @onclick="() => DownloadAttachment(att)"
                                class="flex items-center gap-2 rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5
                                       text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
                                 <span>⊟</span>
                                 <span class="flex-1 truncate">@att.FileName</span>
                                 <span class="text-zinc-600">@FormatSize(att.FileSizeBytes)</span>
-                            </a>
+                            </button>
                         }
                     </div>
 
@@ -289,6 +292,15 @@
             _uploadError = ex.Message;
         }
         finally { _uploading = false; StateHasChanged(); }
+    }
+
+    async Task DownloadAttachment(AttachmentDto att)
+    {
+        var result = await TokenProvider.RequestAccessToken();
+        if (!result.TryGetToken(out var token)) return;
+        var apiBase = Configuration["ApiBaseUrl"] ?? "http://localhost:5041";
+        var url = att.Url.StartsWith("http") ? att.Url : $"{apiBase}{att.Url}";
+        await JS.InvokeVoidAsync("downloadFileWithAuth", url, token.Value, att.FileName);
     }
 
     async Task Close() => await OnClosed.InvokeAsync();

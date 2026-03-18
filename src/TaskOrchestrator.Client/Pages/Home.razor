@@ -2,6 +2,9 @@
 @attribute [Authorize]
 @inject HttpClient Http
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+@using TaskOrchestrator.Client.Components
+@using TaskOrchestrator.Shared.Contracts
 
 <PageTitle>Boards — Task Orchestrator</PageTitle>
 
@@ -29,13 +32,17 @@
             @foreach (var b in _boards)
             {
                 <li>
-                    <a href="board/@b.Id"
-                       class="flex items-center justify-between rounded border border-zinc-800
-                              bg-zinc-900 px-4 py-3 hover:border-zinc-700 hover:bg-zinc-800/60
-                              transition-colors group">
-                        <span class="text-sm text-zinc-200 group-hover:text-zinc-100">@b.Name</span>
-                        <span class="text-xs text-zinc-600 group-hover:text-zinc-500">Open →</span>
-                    </a>
+                    <div class="flex items-center rounded border border-zinc-800 bg-zinc-900 hover:border-zinc-700 transition-colors">
+                        <a href="board/@b.Id"
+                           class="flex flex-1 items-center justify-between px-4 py-3 hover:bg-zinc-800/60 transition-colors group">
+                            <span class="text-sm text-zinc-200 group-hover:text-zinc-100">@b.Name</span>
+                            <span class="text-xs text-zinc-600 group-hover:text-zinc-500">Open →</span>
+                        </a>
+                        <button class="border-l border-zinc-800 px-3 py-3 text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors flex-shrink-0"
+                                @onclick="() => _manageBoardId = b.Id" @onclick:stopPropagation>
+                            Manage
+                        </button>
+                    </div>
                 </li>
             }
         </ul>
@@ -93,9 +100,16 @@
     </div>
 </div>
 
+<BoardManagePanel BoardId="_manageBoardId"
+                  CurrentUserId="_manageCurrentUserId"
+                  OnClosed="() => _manageBoardId = null" />
+
 @code {
     List<BoardDto> _boards = [];
     bool _loading = true;
+
+    int? _manageBoardId;
+    string? _manageCurrentUserId;
 
     bool _showCreate;
     string _newName = "";
@@ -108,6 +122,8 @@
     protected override async Task OnInitializedAsync()
     {
         await Http.PostAsync("/api/me/sync", null);
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _manageCurrentUserId = authState.User.FindFirst("sub")?.Value;
         var result = await Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
         _boards  = result ?? [];
         _loading = false;

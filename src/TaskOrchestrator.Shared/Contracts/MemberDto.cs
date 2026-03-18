@@ -4,8 +4,9 @@ public record BoardMemberDto(
     string UserId,
     string DisplayName,
     string? AvatarUrl,
-    string Role,          // "Owner" | "Member"
-    DateTime JoinedAt
+    string Role,
+    DateTime JoinedAt,
+    DateTime LastSeenAt
 );
 
 public record BoardInviteDto(

@@ -40,4 +40,16 @@ public sealed class ColumnRepository(IDbConnectionFactory db) : IColumnRepositor
         var rows = await conn.ExecuteAsync("DELETE FROM Columns WHERE Id = @Id", new { Id = columnId });
         return rows > 0;
     }
+
+    public async Task<ColumnDto?> UpdateAsync(int columnId, string title, string color, int position)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.ExecuteAsync(
+            "UPDATE Columns SET Title = @Title, Color = @Color, Position = @Position WHERE Id = @Id",
+            new { Id = columnId, Title = title, Color = color, Position = position });
+        if (rows == 0) return null;
+        return await conn.QuerySingleOrDefaultAsync<ColumnDto>(
+            "SELECT Id, BoardId, Title, Color, Position FROM Columns WHERE Id = @Id",
+            new { Id = columnId });
+    }
 }

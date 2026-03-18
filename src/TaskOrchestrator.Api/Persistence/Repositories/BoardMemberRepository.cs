@@ -27,7 +27,7 @@ public sealed class BoardMemberRepository(IDbConnectionFactory db) : IBoardMembe
         using var conn = db.CreateConnection();
         return await conn.QueryAsync<BoardMemberDto>(
             """
-            SELECT bm.UserId, u.DisplayName, u.AvatarUrl, bm.Role, bm.JoinedAt
+            SELECT bm.UserId, u.DisplayName, u.AvatarUrl, bm.Role, bm.JoinedAt, u.LastSeenAt
             FROM BoardMembers bm
             INNER JOIN Users u ON u.Id = bm.UserId
             WHERE bm.BoardId = @BoardId

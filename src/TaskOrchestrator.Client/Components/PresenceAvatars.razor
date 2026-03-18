@@ -3,9 +3,23 @@
 <div class="flex -space-x-1.5">
     @foreach (var user in Users.Take(6))
     {
-        <div class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-700 text-xs font-bold text-zinc-300"
-             title="@user.DisplayName">
-            @user.DisplayName[..1].ToUpper()
+        <div class="relative group flex-shrink-0">
+            @if (!string.IsNullOrEmpty(user.AvatarUrl))
+            {
+                <img src="@user.AvatarUrl" alt="@user.DisplayName"
+                     class="h-7 w-7 rounded-full border-2 border-zinc-900 object-cover" />
+            }
+            else
+            {
+                <div class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-700 text-xs font-bold text-zinc-300">
+                    @user.DisplayName[..1].ToUpper()
+                </div>
+            }
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block
+                        whitespace-nowrap rounded bg-zinc-800 border border-zinc-700 px-2 py-1
+                        text-xs text-zinc-200 shadow-lg z-50 pointer-events-none">
+                @user.DisplayName
+            </div>
         </div>
     }
     @if (Users.Count > 6)

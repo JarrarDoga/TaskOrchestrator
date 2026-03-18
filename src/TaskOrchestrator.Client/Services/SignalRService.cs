@@ -18,6 +18,7 @@ public sealed class SignalRService(IConfiguration config, IAccessTokenProvider t
         BoardStateService state,
         string userId,
         string displayName,
+        string? avatarUrl = null,
         Func<string, Task>? onMemberKicked = null)
     {
         var baseUrl = config["ApiBaseUrl"] ?? "http://localhost:5150";
@@ -50,6 +51,7 @@ public sealed class SignalRService(IConfiguration config, IAccessTokenProvider t
             if (raw is JsonElement el && el.TryGetProperty("columnId", out var idEl))
                 state.ApplyColumnDeleted(idEl.GetInt32());
         });
+        _hub.On<ColumnDto>("ColumnUpdated", state.ApplyColumnUpdated);
 
         if (onMemberKicked is not null)
         {
@@ -64,7 +66,7 @@ public sealed class SignalRService(IConfiguration config, IAccessTokenProvider t
         }
 
         await _hub.StartAsync();
-        await _hub.SendAsync("JoinBoard", boardId, userId, displayName);
+        await _hub.SendAsync("JoinBoard", boardId, userId, displayName, avatarUrl);
         OnStateChanged?.Invoke();
     }
 

@@ -15,4 +15,5 @@ public interface IBoardNotifier
     Task MemberKickedAsync(int boardId, string kickedUserId);
     Task ColumnCreatedAsync(int boardId, ColumnDto column);
     Task ColumnDeletedAsync(int boardId, int columnId);
+    Task ColumnUpdatedAsync(int boardId, ColumnDto column);
 }

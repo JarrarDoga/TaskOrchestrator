@@ -16,19 +16,18 @@ public sealed class TaskHub : Hub
     public const string MemberKicked      = nameof(MemberKicked);
     public const string ColumnCreated     = nameof(ColumnCreated);
     public const string ColumnDeleted     = nameof(ColumnDeleted);
+    public const string ColumnUpdated     = nameof(ColumnUpdated);
 
     // Presence: board-id → connection-id → UserPresenceDto
     // In-memory only; reset on app restart. Fine for a single-node deployment.
     private static readonly Dictionary<int, Dictionary<string, UserPresenceDto>> BoardPresence = [];
     private static readonly object PresenceLock = new();
 
-    public async Task JoinBoard(int boardId, string userId, string displayName)
+    public async Task JoinBoard(int boardId, string userId, string displayName, string? avatarUrl)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(boardId));
-        UpdatePresence(boardId, new UserPresenceDto(userId, displayName, null, DateTime.UtcNow));
-
-        await Clients.Group(GroupName(boardId))
-            .SendAsync(PresenceChanged, GetSnapshot(boardId));
+        UpdatePresence(boardId, new UserPresenceDto(userId, displayName, avatarUrl, null, DateTime.UtcNow));
+        await Clients.Group(GroupName(boardId)).SendAsync(PresenceChanged, GetSnapshot(boardId));
     }
 
     public async Task LeaveBoard(int boardId)
@@ -42,9 +41,14 @@ public sealed class TaskHub : Hub
 
     public async Task UpdateActiveCard(int boardId, string userId, string displayName, int? cardId)
     {
-        UpdatePresence(boardId, new UserPresenceDto(userId, displayName, cardId, DateTime.UtcNow));
-        await Clients.Group(GroupName(boardId))
-            .SendAsync(PresenceChanged, GetSnapshot(boardId));
+        string? avatarUrl = null;
+        lock (PresenceLock)
+        {
+            if (BoardPresence.TryGetValue(boardId, out var board) && board.TryGetValue(userId, out var existing))
+                avatarUrl = existing.AvatarUrl;
+        }
+        UpdatePresence(boardId, new UserPresenceDto(userId, displayName, avatarUrl, cardId, DateTime.UtcNow));
+        await Clients.Group(GroupName(boardId)).SendAsync(PresenceChanged, GetSnapshot(boardId));
     }
 
     public static string GroupName(int boardId) => $"board:{boardId}";

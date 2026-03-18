@@ -3,6 +3,7 @@ namespace TaskOrchestrator.Shared.Contracts;
 public record UserPresenceDto(
     string UserId,
     string DisplayName,
+    string? AvatarUrl,
     int? ActiveCardId,
     DateTime LastSeenAtUtc
 );

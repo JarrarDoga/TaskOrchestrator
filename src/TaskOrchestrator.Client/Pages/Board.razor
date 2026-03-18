@@ -55,20 +55,16 @@
     {
         @foreach (var col in _state.Board.Columns.OrderBy(c => c.Position))
         {
-            <div class="flex flex-col flex-shrink-0">
-                <KanbanColumn Column="col"
-                              DraggingCardId="_dragging?.Id"
-                              OnDragStarted="OnCardDragStart"
-                              OnDragEnded="OnCardDragEnd"
-                              OnDropped="@(args => OnDrop(col.Id, args.Item2))"
-                              CardClicked="OnCardClicked"
-                              AddCardRequested="OnAddCardRequested" />
-                <button class="mt-1 w-72 rounded border border-dashed border-zinc-800 py-1
-                               text-xs text-zinc-700 hover:border-red-900 hover:text-red-500 transition-colors"
-                        @onclick="() => DeleteColumn(col.Id)">
-                    Delete column
-                </button>
-            </div>
+            <KanbanColumn Column="col"
+                          DraggingCardId="_dragging?.Id"
+                          OnDragStarted="OnCardDragStart"
+                          OnDragEnded="OnCardDragEnd"
+                          OnDropped="@(args => OnDrop(col.Id, args.Item2))"
+                          CardClicked="OnCardClicked"
+                          AddCardRequested="OnAddCardRequested"
+                          DeleteRequested="DeleteColumn"
+                          UpdateRequested="UpdateColumn"
+                          MoveRequested="MoveColumn" />
         }
 
         @* Add column inline form *@
@@ -208,6 +204,7 @@
         var displayName = principal.FindFirst("name")?.Value
                        ?? principal.FindFirst("nickname")?.Value
                        ?? "Unknown";
+        var avatarUrl = principal.FindFirst("picture")?.Value;
 
         await HttpClient.PostAsync("/api/me/sync", null);
 
@@ -217,6 +214,7 @@
         {
             await _signalR.ConnectAsync(
                 BoardId, _state, userId, displayName,
+                avatarUrl: avatarUrl,
                 onMemberKicked: kickedId =>
                 {
                     if (kickedId == userId)
@@ -381,6 +379,41 @@
         {
             _state.ApplyColumnDeleted(columnId);
         }
+    }
+
+    async Task UpdateColumn((int ColumnId, string Title, string Color) args)
+    {
+        var col = _state.Board?.Columns.FirstOrDefault(c => c.Id == args.ColumnId);
+        if (col is null) return;
+        var req = new UpdateColumnRequest(args.Title, args.Color, col.Position);
+        var response = await HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{args.ColumnId}", req);
+        if (response.IsSuccessStatusCode)
+        {
+            var updated = await response.Content.ReadFromJsonAsync<ColumnDto>();
+            if (updated is not null && _signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+                _state.ApplyColumnUpdated(updated);
+        }
+    }
+
+    async Task MoveColumn((int ColumnId, int Delta) args)
+    {
+        if (_state.Board is null) return;
+        var cols = _state.Board.Columns.OrderBy(c => c.Position).ToList();
+        var idx = cols.FindIndex(c => c.Id == args.ColumnId);
+        if (idx < 0) return;
+        var newIdx = Math.Clamp(idx + args.Delta, 0, cols.Count - 1);
+        if (newIdx == idx) return;
+
+        var colA = cols[idx];
+        var colB = cols[newIdx];
+
+        await Task.WhenAll(
+            HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colA.Id}",
+                new UpdateColumnRequest(colA.Title, colA.Color, colB.Position)),
+            HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colB.Id}",
+                new UpdateColumnRequest(colB.Title, colB.Color, colA.Position)));
+
+        await _state.LoadBoardAsync(BoardId);
     }
 
     async Task OnConflictDismissed(ConflictResolution resolution)

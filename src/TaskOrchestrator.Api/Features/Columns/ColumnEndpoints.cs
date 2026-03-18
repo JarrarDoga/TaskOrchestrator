@@ -16,6 +16,7 @@ public static class ColumnEndpoints
 
         group.MapPost("/",              Create);
         group.MapDelete("/{columnId:int}", Delete);
+        group.MapPatch("/{columnId:int}", Update);
 
         return app;
     }
@@ -49,5 +50,18 @@ public static class ColumnEndpoints
 
         await notifier.ColumnDeletedAsync(boardId, columnId);
         return Results.NoContent();
+    }
+
+    static async Task<IResult> Update(
+        int boardId, int columnId,
+        [FromBody] UpdateColumnRequest req,
+        IUserContext user, IBoardMemberRepository members,
+        IColumnRepository columns, IBoardNotifier notifier)
+    {
+        if (await Guard.RequireMemberAsync(boardId, user, members) is { } err) return err;
+        var updated = await columns.UpdateAsync(columnId, req.Title, req.Color, req.Position);
+        if (updated is null) return Results.NotFound();
+        await notifier.ColumnUpdatedAsync(boardId, updated);
+        return Results.Ok(updated);
     }
 }

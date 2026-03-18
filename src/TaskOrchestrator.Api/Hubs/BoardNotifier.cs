@@ -33,4 +33,7 @@ public sealed class BoardNotifier(IHubContext<TaskHub> hub) : IBoardNotifier
 
     public Task ColumnDeletedAsync(int boardId, int columnId) =>
         Group(boardId).SendAsync(TaskHub.ColumnDeleted, new { boardId, columnId });
+
+    public Task ColumnUpdatedAsync(int boardId, ColumnDto column) =>
+        Group(boardId).SendAsync(TaskHub.ColumnUpdated, column);
 }

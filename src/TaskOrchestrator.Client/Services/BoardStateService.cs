@@ -192,6 +192,21 @@ public sealed class BoardStateService(HttpClient http)
         NotifyChange();
     }
 
+    public void ApplyColumnUpdated(ColumnDto col)
+    {
+        if (Board is null) return;
+        Board = Board with
+        {
+            Columns = Board.Columns
+                .Select(c => c.Id == col.Id
+                    ? c with { Title = col.Title, Color = col.Color, Position = col.Position }
+                    : c)
+                .OrderBy(c => c.Position)
+                .ToList()
+        };
+        NotifyChange();
+    }
+
     public void SetConflict(ConflictInfo conflict)
     {
         PendingConflict = conflict;

@@ -45,3 +45,21 @@ function readAndSend(dotnetRef, file) {
 
 // Scroll a given element into view smoothly
 window.scrollIntoView = (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+window.downloadFileWithAuth = async function(url, token, filename) {
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!response.ok) { console.error('Download failed:', response.status); return; }
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+    } catch (e) { console.error('Download error:', e); }
+};
