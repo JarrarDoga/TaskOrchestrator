@@ -39,19 +39,6 @@ jobs:
           dotnet publish src/TaskOrchestrator.Client/TaskOrchestrator.Client.csproj \
             -c Release -o published
 
-      - name: Debug publish output
-        run: |
-          echo "=== published/ contents ==="
-          ls -la published/
-          echo "=== secret lengths ==="
-          echo "VERCEL_TOKEN length: ${#VERCEL_TOKEN}"
-          echo "VERCEL_ORG_ID length: ${#VERCEL_ORG_ID}"
-          echo "VERCEL_PROJECT_ID length: ${#VERCEL_PROJECT_ID}"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
@@ -59,11 +46,7 @@ jobs:
         run: |
           mkdir -p published/wwwroot/.vercel
           echo '{"projectId":"${{ secrets.VERCEL_PROJECT_ID }}","orgId":"${{ secrets.VERCEL_ORG_ID }}"}' > published/wwwroot/.vercel/project.json
-          vercel --cwd published/wwwroot deploy . --prod --yes
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel --cwd published/wwwroot deploy . --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
 
   # ── API → Railway ──────────────────────────────────────────────────────────
   # Railway watches this repo directly and redeploys automatically on push to
