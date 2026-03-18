@@ -17,7 +17,7 @@ builder.Services.AddHttpClient("API", c => c.BaseAddress = new Uri(apiBase))
         var handler = sp.GetRequiredService<AuthorizationMessageHandler>()
             .ConfigureHandler(
                 authorizedUrls: [apiBase],
-                scopes: [builder.Configuration["Auth0:Scope"] ?? "openid profile email"]);
+                scopes: ["openid", "profile", "email"]);
         return handler;
     });
 
