@@ -5,3 +5,7 @@ obj/
 *.suo
 .DS_Store
 uploads/
+.vercel/
+published/
+
+.vercel
