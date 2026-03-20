@@ -1,8 +1,8 @@
 @using System.Net.Http.Json
 @using Microsoft.JSInterop
-@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using TaskOrchestrator.Shared.Contracts
 @using TaskOrchestrator.Shared.Enums
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -12,141 +12,174 @@
 @if (Card is not null)
 {
     <div class="fixed inset-0 z-40 flex justify-end" @onclick="Close">
-        @* Backdrop *@
-        <div class="absolute inset-0 bg-black/50"></div>
+        <div class="absolute inset-0 bg-background/50 backdrop-blur-sm"></div>
 
-        @* Drawer *@
-        <div class="relative z-50 flex h-full w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden"
+        <div class="relative z-50 flex h-full w-full max-w-xl flex-col glass-panel shadow-2xl border-l border-white/5 overflow-hidden"
              @onclick:stopPropagation>
 
             @* Header *@
-            <div class="flex items-center gap-3 border-b border-zinc-800 px-4 py-3">
+            <div class="flex items-center gap-4 border-b border-white/5 px-6 py-5">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <span class="material-symbols-outlined">task</span>
+                </div>
                 <div class="flex-1 min-w-0">
                     @if (_editing)
                     {
-                        <input class="w-full bg-transparent text-base font-semibold text-zinc-100 focus:outline-none border-b border-blue-500 pb-0.5"
+                        <input class="w-full bg-transparent text-lg font-headline font-bold text-on-surface focus:outline-none border-b border-primary pb-0.5"
                                @bind="_editTitle" @bind:event="oninput" />
                     }
                     else
                     {
-                        <h2 class="truncate text-base font-semibold text-zinc-100">@Card.Title</h2>
+                        <h2 class="text-lg font-headline font-extrabold text-on-surface truncate">@Card.Title</h2>
                     }
-                    <p class="text-xs text-zinc-600 mt-0.5">
-                        Card #@Card.Id · v@Card.Version ·
-                        updated @Card.UpdatedAtUtc.ToString("dd MMM HH:mm")
-                    </p>
+                    <p class="text-xs text-on-surface-variant mt-0.5">Card #@Card.Id · v@Card.Version · updated @Card.UpdatedAtUtc.ToString("dd MMM HH:mm")</p>
                 </div>
-                <button class="text-zinc-600 hover:text-zinc-300 transition-colors text-lg leading-none"
-                        @onclick="Close">✕</button>
+                <button class="p-2 hover:bg-white/10 rounded-full transition-colors flex-shrink-0" @onclick="Close">
+                    <span class="material-symbols-outlined text-on-surface-variant">close</span>
+                </button>
             </div>
 
-            <div class="flex flex-1 flex-col overflow-y-auto">
-                @* Description *@
-                <div class="border-b border-zinc-800 px-4 py-3">
-                    <label class="text-[10px] uppercase tracking-wider text-zinc-600 font-semibold">Description</label>
+            @* Scrollable content *@
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+                @* Priority *@
+                <section>
+                    <label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Priority</label>
                     @if (_editing)
                     {
-                        <textarea class="mt-1 w-full resize-none bg-zinc-900 rounded border border-zinc-700 px-2 py-1.5
-                                         text-sm text-zinc-300 focus:border-blue-500 focus:outline-none"
-                                  rows="4"
-                                  @bind="_editDescription"></textarea>
+                        <select class="w-full bg-surface-container-high border border-outline-variant text-sm text-on-surface px-4 py-3 rounded-xl focus:border-primary focus:outline-none"
+                                @bind="_editPriority">
+                            @foreach (var p in Enum.GetValues<TaskPriority>())
+                            {
+                                <option value="@p">@p</option>
+                            }
+                        </select>
                     }
                     else
                     {
-                        <p class="mt-1 text-sm text-zinc-400 whitespace-pre-wrap">
+                        <div class="@PriorityButtonClass flex items-center justify-between px-4 py-3 rounded-xl border font-semibold text-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full @PriorityDotClass"></span>
+                                @Card.Priority
+                            </div>
+                        </div>
+                    }
+                </section>
+
+                @* Description *@
+                <section>
+                    <label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Description</label>
+                    @if (_editing)
+                    {
+                        <textarea class="w-full bg-surface-container-high border border-outline-variant rounded-xl px-4 py-3 text-sm text-on-surface resize-none focus:border-primary focus:outline-none"
+                                  rows="4" @bind="_editDescription"></textarea>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             @(string.IsNullOrWhiteSpace(Card.Description) ? "No description." : Card.Description)
                         </p>
                     }
-                </div>
-
-                @* Priority + assigned *@
-                <div class="flex gap-4 border-b border-zinc-800 px-4 py-3">
-                    <div class="flex-1">
-                        <label class="text-[10px] uppercase tracking-wider text-zinc-600 font-semibold">Priority</label>
-                        @if (_editing)
-                        {
-                            <select class="mt-1 w-full bg-zinc-900 rounded border border-zinc-700 px-2 py-1
-                                           text-sm text-zinc-300 focus:border-blue-500 focus:outline-none"
-                                    @bind="_editPriority">
-                                @foreach (var p in Enum.GetValues<TaskPriority>())
-                                {
-                                    <option value="@p">@p</option>
-                                }
-                            </select>
-                        }
-                        else
-                        {
-                            <p class="mt-1 text-sm @PriorityColor(Card.Priority)">@Card.Priority</p>
-                        }
-                    </div>
-                </div>
+                </section>
 
                 @* Attachments *@
-                <div class="border-b border-zinc-800 px-4 py-3">
-                    <label class="text-[10px] uppercase tracking-wider text-zinc-600 font-semibold">
-                        Attachments (@Card.Attachments.Count)
-                    </label>
-                    <div class="mt-2 flex flex-col gap-1">
+                <section>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+                            Attachments (@Card.Attachments.Count)
+                        </label>
+                        <button class="text-xs font-bold text-primary hover:underline" @onclick="TriggerFilePicker">Add New</button>
+                    </div>
+                    <div class="space-y-2">
                         @foreach (var att in Card.Attachments)
                         {
-                            <button @onclick="() => DownloadAttachment(att)"
-                               class="flex items-center gap-2 rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5
-                                      text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors">
-                                <span>⊟</span>
-                                <span class="flex-1 truncate">@att.FileName</span>
-                                <span class="text-zinc-600">@FormatSize(att.FileSizeBytes)</span>
-                            </button>
+                            <div class="group flex items-center gap-3 p-3 rounded-xl bg-surface-container-high hover:bg-surface-bright transition-colors">
+                                <div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-sm text-on-surface-variant">@GetAttachmentIcon(att.FileName)</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-on-surface truncate">@att.FileName</p>
+                                    <p class="text-[10px] text-on-surface-variant">@FormatSize(att.FileSizeBytes)</p>
+                                </div>
+                                <button class="opacity-0 group-hover:opacity-100 transition-opacity text-on-surface-variant hover:text-error"
+                                        @onclick="() => DownloadAttachment(att)" title="Download">
+                                    <span class="material-symbols-outlined text-base">download</span>
+                                </button>
+                            </div>
                         }
                     </div>
 
                     @* Upload area *@
-                    <div class="mt-2 rounded border border-dashed border-zinc-700 p-3 text-center
-                                hover:border-zinc-600 transition-colors cursor-pointer"
+                    <div class="mt-3 rounded-xl border-2 border-dashed border-outline-variant hover:border-primary/50 p-4 text-center
+                                hover:bg-primary/5 transition-all cursor-pointer"
                          @onclick="TriggerFilePicker">
                         @if (_uploading)
                         {
-                            <div class="flex items-center justify-center gap-2 text-xs text-zinc-500">
-                                <span class="animate-spin">⟳</span> Uploading...
+                            <div class="flex items-center justify-center gap-2 text-xs text-on-surface-variant">
+                                <span class="animate-spin material-symbols-outlined text-lg">autorenew</span>
+                                Uploading...
                             </div>
                         }
                         else
                         {
-                            <p class="text-xs text-zinc-600">drop file, paste, or <span class="text-blue-500 cursor-pointer">browse</span></p>
+                            <div class="flex items-center justify-center gap-2 text-xs text-on-surface-variant">
+                                <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                                Drop file, paste, or <span class="text-primary ml-1">browse</span>
+                            </div>
                         }
                     </div>
                     <InputFile id="@_fileInputId" @ref="_inputFile" class="hidden" OnChange="OnFileSelected" />
                     @if (_uploadError is not null)
                     {
-                        <p class="mt-1 text-xs text-red-400">@_uploadError</p>
+                        <p class="mt-1 text-xs text-error">@_uploadError</p>
                     }
-                </div>
+                </section>
 
                 @* Activity *@
-                <div class="px-4 py-3 flex-1">
-                    <label class="text-[10px] uppercase tracking-wider text-zinc-600 font-semibold mb-2 block">Activity</label>
-                    <ActivityFeed Events="@_activity" />
-                </div>
+                <section>
+                    <label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-4">Activity</label>
+                    <div class="space-y-4 relative ml-2">
+                        <div class="absolute left-0 top-1 bottom-1 w-px bg-outline-variant/30"></div>
+                        @foreach (var evt in _activity)
+                        {
+                            <div class="relative pl-5">
+                                <div class="absolute left-[-4px] top-1.5 w-2 h-2 rounded-full bg-surface-container-highest ring-4 ring-surface-container-highest border border-outline-variant/50"></div>
+                                <p class="text-xs text-on-surface leading-relaxed">
+                                    <span class="font-semibold">@(evt.UserDisplayName ?? "System")</span>
+                                    · @evt.Description
+                                </p>
+                                <p class="text-[10px] text-on-surface-variant mt-0.5 uppercase font-bold tracking-tighter">
+                                    @evt.OccurredAtUtc.ToString("MMM dd, HH:mm")
+                                </p>
+                            </div>
+                        }
+                        @if (!_activity.Any())
+                        {
+                            <p class="text-xs text-on-surface-variant pl-5">No activity yet.</p>
+                        }
+                    </div>
+                </section>
+
             </div>
 
-            @* Footer actions *@
-            <div class="border-t border-zinc-800 px-4 py-3 flex gap-2 justify-end">
+            @* Footer *@
+            <div class="border-t border-white/5 px-6 py-4 bg-surface-container-lowest flex items-center gap-3">
                 @if (_saveError is not null)
                 {
-                    <p class="mr-auto self-center text-xs text-red-400">@_saveError</p>
+                    <p class="mr-auto text-xs text-error">@_saveError</p>
                 }
                 @if (_editing)
                 {
-                    <button class="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400
-                                   hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+                    <button class="flex-1 rounded-xl border border-outline-variant px-4 py-3 text-sm font-headline font-bold text-on-surface-variant hover:bg-white/5 transition-colors"
                             @onclick="CancelEdit">Cancel</button>
-                    <button class="rounded border border-blue-700 bg-blue-900/40 px-3 py-1.5 text-xs text-blue-300
-                                   hover:bg-blue-900/60 transition-colors"
-                            @onclick="SaveEdit">Save</button>
+                    <button class="flex-1 btn-gradient rounded-xl px-4 py-3 text-sm font-headline font-bold text-white hover:opacity-90 transition-all"
+                            @onclick="SaveEdit">Save Changes</button>
                 }
                 else
                 {
-                    <button class="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400
-                                   hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+                    <button class="flex-1 rounded-xl border border-outline-variant px-4 py-3 text-sm font-headline font-bold text-on-surface-variant hover:bg-white/5 transition-colors"
+                            @onclick="Close">Cancel</button>
+                    <button class="flex-1 btn-gradient rounded-xl px-4 py-3 text-sm font-headline font-bold text-white hover:opacity-90 transition-all"
                             @onclick="StartEdit">Edit</button>
                 }
             </div>
@@ -312,11 +345,32 @@
         _ => $"{bytes / 1024 / 1024}MB"
     };
 
-    static string PriorityColor(TaskPriority p) => p switch
+    string PriorityButtonClass => Card?.Priority switch
     {
-        TaskPriority.Critical => "text-red-400",
-        TaskPriority.High     => "text-orange-400",
-        TaskPriority.Medium   => "text-blue-400",
-        _                     => "text-zinc-500"
+        TaskPriority.Critical => "bg-error-container text-on-error-container border-error/20",
+        TaskPriority.High     => "bg-tertiary-container/20 text-tertiary border-tertiary/20",
+        TaskPriority.Medium   => "bg-secondary-container/20 text-secondary border-secondary/20",
+        _ => "bg-surface-container-high text-on-surface-variant border-outline-variant"
     };
+
+    string PriorityDotClass => Card?.Priority switch
+    {
+        TaskPriority.Critical => "bg-error animate-pulse",
+        TaskPriority.High     => "bg-tertiary",
+        TaskPriority.Medium   => "bg-secondary",
+        _ => "bg-on-surface-variant"
+    };
+
+    static string GetAttachmentIcon(string fileName)
+    {
+        var ext = System.IO.Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" => "image",
+            ".pdf" => "picture_as_pdf",
+            ".txt" or ".md" => "description",
+            ".zip" => "folder_zip",
+            _ => "attach_file"
+        };
+    }
 }

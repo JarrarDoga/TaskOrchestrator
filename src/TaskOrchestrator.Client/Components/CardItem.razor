@@ -1,50 +1,51 @@
 @using TaskOrchestrator.Shared.Contracts
 @using TaskOrchestrator.Shared.Enums
 
-<div class="group relative rounded border @BorderClass bg-zinc-800 px-3 py-2.5 cursor-grab active:cursor-grabbing
-            hover:border-zinc-600 transition-all duration-150 select-none @(IsDragging ? "opacity-40 scale-95" : "")"
+<div class="group bg-surface-container-highest rounded-xl p-4 border-l-4 @(IsDragging ? "opacity-40 scale-95 border-transparent" : "border-transparent hover:border-primary") hover:bg-surface-bright transition-all duration-150 cursor-pointer shadow-sm select-none"
      draggable="true"
      @ondragstart="OnDragStart"
      @ondragend="OnDragEnd"
      @onclick="OnClick">
 
-    @* Priority stripe *@
-    <div class="absolute left-0 top-0 bottom-0 w-0.5 rounded-l @PriorityColor"></div>
+    @* Priority badge + menu *@
+    <div class="flex items-center justify-between mb-2">
+        <span class="@PriorityBadgeClass text-[10px] font-bold uppercase px-2 py-0.5 rounded-full tracking-wider">
+            @Card.Priority
+        </span>
+        <span class="material-symbols-outlined text-outline group-hover:text-on-surface-variant text-lg opacity-0 group-hover:opacity-100 transition-opacity">more_horiz</span>
+    </div>
 
-    <div class="pl-1.5">
-        <p class="text-zinc-100 font-medium leading-snug line-clamp-2">@Card.Title</p>
+    @* Title *@
+    <h4 class="text-sm font-semibold text-on-surface mb-1 line-clamp-2 leading-snug">@Card.Title</h4>
 
-        @if (!string.IsNullOrWhiteSpace(Card.Description))
-        {
-            <p class="mt-1 text-xs text-zinc-500 line-clamp-1">@Card.Description</p>
-        }
+    @* Description *@
+    @if (!string.IsNullOrWhiteSpace(Card.Description))
+    {
+        <p class="text-xs text-on-surface-variant line-clamp-2 mb-3 leading-relaxed">@Card.Description</p>
+    }
 
-        <div class="mt-2 flex items-center gap-2 flex-wrap">
-            @* Labels from metadata *@
-            @if (Labels.Any())
+    @* Meta row *@
+    <div class="flex items-center justify-between mt-2">
+        <div class="flex items-center gap-3 text-[10px] text-outline">
+            @if (Card.Attachments.Any())
             {
-                @foreach (var label in Labels.Take(3))
-                {
-                    <span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-400">@label</span>
-                }
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">attach_file</span>
+                    <span>@Card.Attachments.Count</span>
+                </div>
             }
-
-            <div class="ml-auto flex items-center gap-1.5 text-zinc-600">
-                @if (Card.Attachments.Any())
-                {
-                    <span class="text-[10px]" title="@Card.Attachments.Count attachment(s)">
-                        ⊟ @Card.Attachments.Count
-                    </span>
-                }
-                @if (!string.IsNullOrEmpty(Card.AssignedToUserId))
-                {
-                    <span class="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-[9px] text-zinc-400"
-                          title="@Card.AssignedToUserId">
-                        @Card.AssignedToUserId[..1].ToUpper()
-                    </span>
-                }
-            </div>
+            @foreach (var label in Labels.Take(2))
+            {
+                <span class="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary text-[9px] font-bold uppercase">@label</span>
+            }
         </div>
+        @if (!string.IsNullOrEmpty(Card.AssignedToUserId))
+        {
+            <div class="h-6 w-6 rounded-full bg-surface-container flex items-center justify-center text-[9px] font-bold text-on-surface-variant border border-outline-variant/30"
+                 title="@Card.AssignedToUserId">
+                @Card.AssignedToUserId[..1].ToUpper()
+            </div>
+        }
     </div>
 </div>
 
@@ -55,14 +56,12 @@
     [Parameter] public EventCallback OnDragEnded { get; set; }
     [Parameter] public EventCallback<CardDto> OnCardClicked { get; set; }
 
-    string BorderClass => IsDragging ? "border-blue-500/40" : "border-zinc-700";
-
-    string PriorityColor => Card.Priority switch
+    string PriorityBadgeClass => Card.Priority switch
     {
-        TaskPriority.Critical => "bg-red-500",
-        TaskPriority.High     => "bg-orange-500",
-        TaskPriority.Medium   => "bg-blue-500",
-        _                     => "bg-zinc-700"
+        TaskPriority.Critical => "bg-error-container text-on-error-container",
+        TaskPriority.High     => "bg-tertiary-container/40 text-tertiary",
+        TaskPriority.Medium   => "bg-secondary-container text-on-secondary-container",
+        _                     => "bg-surface-container-high text-on-surface-variant"
     };
 
     IEnumerable<string> Labels

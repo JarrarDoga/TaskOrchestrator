@@ -1,8 +1,8 @@
 @inherits LayoutComponentBase
 
-<div class="flex h-screen overflow-hidden bg-zinc-950 text-zinc-100 font-mono text-sm">
+<div class="flex h-screen bg-background overflow-hidden">
     <NavMenu />
-    <main class="flex flex-1 flex-col overflow-hidden">
+    <div class="flex flex-1 flex-col ml-64 min-w-0 overflow-hidden">
         @Body
-    </main>
+    </div>
 </div>

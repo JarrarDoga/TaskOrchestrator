@@ -6,98 +6,143 @@
 @if (BoardId.HasValue)
 {
     <div class="fixed inset-0 z-50 flex justify-end" @onclick="Close">
-        <div class="absolute inset-0 bg-black/50"></div>
-        <div class="relative z-50 flex h-full w-full max-w-lg flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl"
+        <div class="absolute inset-0 bg-background/50 backdrop-blur-sm"></div>
+        <div class="relative z-50 flex h-full w-[450px] flex-col glass-panel shadow-2xl border-l border-white/5"
              @onclick:stopPropagation>
 
-            <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3 flex-shrink-0">
-                <h2 class="text-sm font-semibold text-zinc-200">Manage Board</h2>
-                <button class="text-zinc-600 hover:text-zinc-300 text-lg leading-none" @onclick="Close">✕</button>
+            @* Header *@
+            <div class="px-8 py-6 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h2 class="text-2xl font-headline font-extrabold text-on-surface tracking-tight">Manage Board</h2>
+                    <p class="text-on-surface-variant text-sm mt-0.5">Board #@BoardId</p>
+                </div>
+                <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                        @onclick="Close">
+                    <span class="material-symbols-outlined text-on-surface-variant">close</span>
+                </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto">
-                @* Invite code section *@
-                <section class="border-b border-zinc-800 px-4 py-4">
-                    <p class="text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Invite Code</p>
+            <div class="flex-1 overflow-y-auto px-8 py-6 space-y-10">
+                @* Invite Code *@
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">key</span>
+                        <h3 class="font-headline font-bold text-on-surface">Invite Code</h3>
+                    </div>
                     @if (_loadingInvite)
                     {
-                        <p class="text-xs text-zinc-600">Loading…</p>
+                        <p class="text-xs text-on-surface-variant">Loading…</p>
                     }
                     else if (_invite is not null)
                     {
-                        <div class="flex items-center gap-2 mb-2 flex-wrap">
-                            <code class="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 tracking-widest font-mono min-w-0">
-                                @_invite.Code
-                            </code>
-                            <button class="rounded border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex-shrink-0"
-                                    @onclick="CopyInviteCode">⎘ Copy</button>
-                            <button class="rounded border border-red-900 px-2 py-1.5 text-xs text-red-500 hover:text-red-300 transition-colors flex-shrink-0"
-                                    @onclick="RevokeInvite">Revoke</button>
+                        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/15 space-y-3">
+                            <div class="flex items-center gap-2">
+                                <code class="flex-1 font-headline font-bold text-on-surface text-sm tracking-widest truncate">@_invite.Code</code>
+                                <button class="text-on-surface-variant hover:text-primary transition-colors" @onclick="CopyInviteCode" title="Copy">
+                                    <span class="material-symbols-outlined text-lg">content_copy</span>
+                                </button>
+                                <button class="text-on-surface-variant hover:text-error transition-colors" @onclick="RevokeInvite" title="Revoke">
+                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                            </div>
+                            <div class="flex gap-3 text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                                @if (_invite.ExpiresAt.HasValue) { <span>Expires @_invite.ExpiresAt.Value.ToString("dd MMM yyyy")</span> }
+                                else { <span>No expiry</span> }
+                                <span>Uses: @_invite.TimesUsed@(_invite.MaxUses.HasValue ? $" / {_invite.MaxUses}" : "")</span>
+                            </div>
+                            @if (_copySuccess) { <p class="text-xs text-secondary font-medium">Copied to clipboard!</p> }
                         </div>
-                        <div class="flex flex-wrap gap-3 text-xs text-zinc-600">
-                            @if (_invite.ExpiresAt.HasValue)
-                            { <span>Expires @_invite.ExpiresAt.Value.ToString("dd MMM yyyy")</span> }
-                            else
-                            { <span>No expiry</span> }
-                            <span>Uses: @_invite.TimesUsed@(_invite.MaxUses.HasValue ? $" / {_invite.MaxUses}" : "")</span>
-                        </div>
-                        @if (_copySuccess) { <p class="mt-1 text-xs text-green-500">Copied!</p> }
                     }
                     else
                     {
-                        <p class="text-xs text-zinc-600 mb-2">No active invite code.</p>
+                        <div class="p-6 rounded-xl bg-surface-container-low border border-outline-variant/15 flex flex-col items-center gap-4 text-center">
+                            <p class="text-sm text-on-surface-variant">No active invite code</p>
+                        </div>
                     }
-                    @if (_inviteError is not null) { <p class="text-xs text-red-400 mt-1">@_inviteError</p> }
-                    <button class="mt-2 rounded border border-blue-700 bg-blue-900/30 px-3 py-1.5 text-xs text-blue-300 hover:bg-blue-900/50 transition-colors"
+                    @if (_inviteError is not null) { <p class="text-xs text-error">@_inviteError</p> }
+                    <button class="w-full btn-gradient text-white py-3 rounded-xl font-headline font-extrabold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
                             @onclick="GenerateInvite">
                         @(_invite is null ? "Generate invite code" : "Regenerate")
                     </button>
                 </section>
 
-                @* Members section *@
-                <section class="px-4 py-4">
-                    <p class="text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Members (@_members.Count)</p>
+                @* Members *@
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-xl">group</span>
+                            <h3 class="font-headline font-bold text-on-surface">Members</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full uppercase tracking-wider">
+                            @_members.Count Members
+                        </span>
+                    </div>
                     @if (_loadingMembers)
                     {
-                        <p class="text-xs text-zinc-600">Loading…</p>
+                        <p class="text-xs text-on-surface-variant">Loading…</p>
                     }
                     else
                     {
-                        <ul class="flex flex-col gap-2">
+                        <div class="space-y-2">
                             @foreach (var m in _members)
                             {
-                                <li class="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                                    @if (!string.IsNullOrEmpty(m.AvatarUrl))
-                                    {
-                                        <img src="@m.AvatarUrl" alt="@m.DisplayName"
-                                             class="h-8 w-8 rounded-full object-cover flex-shrink-0" />
-                                    }
-                                    else
-                                    {
-                                        <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 text-xs font-bold text-zinc-300">
-                                            @m.DisplayName[..1].ToUpper()
-                                        </div>
-                                    }
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm text-zinc-200 truncate">@m.DisplayName</p>
-                                        <p class="text-[10px] text-zinc-600">Last seen @FormatRelative(m.LastSeenAt)</p>
+                                <div class="group flex items-center gap-4 p-4 rounded-xl bg-surface-container-high hover:bg-surface-bright transition-all border-l-2 border-transparent hover:border-primary">
+                                    <div class="relative flex-shrink-0">
+                                        @if (!string.IsNullOrEmpty(m.AvatarUrl))
+                                        {
+                                            <img src="@m.AvatarUrl" class="w-10 h-10 rounded-full object-cover @(m.Role == "Owner" ? "border-2 border-primary/30" : "opacity-70 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all")" alt="@m.DisplayName" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-sm font-headline font-bold @(m.Role == "Owner" ? "text-primary border-2 border-primary/30" : "text-on-surface-variant")">
+                                                @m.DisplayName[..1].ToUpper()
+                                            </div>
+                                        }
+                                        @if (m.Role == "Owner")
+                                        {
+                                            <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-secondary rounded-full border-2 border-surface-container-high"></div>
+                                        }
                                     </div>
-                                    <span class="text-[10px] @(m.Role == "Owner" ? "text-amber-500" : "text-zinc-600") flex-shrink-0">@m.Role</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold text-on-surface truncate">@m.DisplayName</p>
+                                        <p class="text-[10px] font-bold @(m.Role == "Owner" ? "text-primary" : "text-on-surface-variant/60") uppercase tracking-widest mt-0.5">@m.Role</p>
+                                        <p class="text-[10px] text-on-surface-variant/40">@FormatRelative(m.LastSeenAt)</p>
+                                    </div>
                                     @if (m.Role != "Owner" && _currentUserRole == "Owner")
                                     {
-                                        <button class="text-xs text-zinc-600 hover:text-red-400 transition-colors flex-shrink-0"
-                                                title="Remove" @onclick="() => KickMember(m.UserId)">✕</button>
-                                        <button class="text-[10px] text-zinc-600 hover:text-amber-400 transition-colors flex-shrink-0"
-                                                title="Transfer ownership" @onclick="() => TransferOwnership(m.UserId)">
-                                            →Owner
-                                        </button>
+                                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button class="p-1.5 hover:bg-white/10 rounded-lg text-on-surface-variant hover:text-error transition-colors"
+                                                    title="Remove" @onclick="() => KickMember(m.UserId)">
+                                                <span class="material-symbols-outlined text-base">person_remove</span>
+                                            </button>
+                                            <button class="p-1.5 hover:bg-white/10 rounded-lg text-on-surface-variant hover:text-tertiary transition-colors"
+                                                    title="Transfer ownership" @onclick="() => TransferOwnership(m.UserId)">
+                                                <span class="material-symbols-outlined text-base">workspace_premium</span>
+                                            </button>
+                                        </div>
                                     }
-                                </li>
+                                </div>
                             }
-                        </ul>
+                        </div>
                     }
-                    @if (_memberError is not null) { <p class="mt-2 text-xs text-red-400">@_memberError</p> }
+                    @if (_memberError is not null) { <p class="text-xs text-error mt-2">@_memberError</p> }
+                    <button class="w-full flex items-center justify-center gap-2 py-4 text-on-surface-variant hover:text-primary transition-colors text-sm font-medium border-t border-outline-variant/10">
+                        <span class="material-symbols-outlined text-lg">person_add</span>
+                        Add member manually
+                    </button>
                 </section>
+            </div>
+
+            @* Footer *@
+            <div class="px-8 py-6 border-t border-white/5 bg-surface-container-lowest flex-shrink-0">
+                <div class="flex gap-3">
+                    <button class="flex-1 px-4 py-3 rounded-xl border border-outline-variant text-on-surface text-sm font-headline font-bold hover:bg-white/5 transition-colors">
+                        Permissions
+                    </button>
+                    <button class="flex-1 px-4 py-3 rounded-xl bg-error-container/20 text-error border border-error-container/30 text-sm font-headline font-bold hover:bg-error-container/30 transition-colors">
+                        Archive Board
+                    </button>
+                </div>
             </div>
         </div>
     </div>

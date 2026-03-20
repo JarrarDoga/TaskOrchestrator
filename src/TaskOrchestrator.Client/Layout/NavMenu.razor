@@ -1,19 +1,52 @@
-<aside class="flex w-52 flex-shrink-0 flex-col border-r border-zinc-800 bg-zinc-900 py-4">
-    <div class="px-4 pb-4 border-b border-zinc-800">
-        <span class="text-xs font-bold tracking-widest text-zinc-500 uppercase">Orchestrator</span>
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface-container-lowest z-50 border-r border-white/5">
+    @* Brand *@
+    <div class="px-6 py-6 mb-2">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center flex-shrink-0">
+                <span class="text-white font-headline font-bold text-sm">A</span>
+            </div>
+            <div>
+                <h1 class="text-base font-headline font-bold text-on-surface tracking-tight">Orchestrator</h1>
+                <p class="text-[10px] text-on-surface-variant">Premium Kanban</p>
+            </div>
+        </div>
     </div>
 
-    <nav class="flex flex-col gap-0.5 px-2 pt-3">
-        <NavLink class="flex items-center gap-2 rounded px-3 py-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-                 ActiveClass="bg-zinc-800 text-zinc-100"
-                 href=""
-                 Match="NavLinkMatch.All">
-            <span class="text-xs">◈</span> Home
+    @* Nav links *@
+    <nav class="flex-1 px-3 flex flex-col gap-0.5">
+        <NavLink href="" Match="NavLinkMatch.All"
+                 class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors"
+                 ActiveClass="bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary">
+            <span class="material-symbols-outlined text-xl">home</span>
+            <span>Home</span>
         </NavLink>
+        <NavLink href="boards"
+                 class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors"
+                 ActiveClass="bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary">
+            <span class="material-symbols-outlined text-xl">dashboard</span>
+            <span>Boards</span>
+        </NavLink>
+        <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">
+            <span class="material-symbols-outlined text-xl">group</span>
+            <span>Teams</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">
+            <span class="material-symbols-outlined text-xl">settings</span>
+            <span>Settings</span>
+        </a>
     </nav>
 
-    <div class="mt-auto px-4 pt-4 border-t border-zinc-800 flex flex-col gap-2">
-        <LoginDisplay />
-        <span class="text-xs text-zinc-600">v0.1.0-dev</span>
+    @* Footer *@
+    <div class="px-3 pb-4 flex flex-col gap-2">
+        <button class="w-full btn-gradient text-white py-3 px-4 rounded-xl font-headline font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95">
+            <span class="material-symbols-outlined text-lg">add</span>
+            New Project
+        </button>
+        <div class="pt-2 border-t border-white/5 mt-1">
+            <LoginDisplay />
+        </div>
     </div>
 </aside>

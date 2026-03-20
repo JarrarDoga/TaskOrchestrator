@@ -16,27 +16,41 @@
 
 <PageTitle>Board — Task Orchestrator</PageTitle>
 
-@* Board header *@
-<header class="flex flex-shrink-0 items-center gap-4 border-b border-zinc-800 bg-zinc-900 px-4 py-2.5">
-    <div class="flex-1 min-w-0">
-        <h1 class="truncate text-sm font-semibold text-zinc-200">
-            @(_state.Board?.Name ?? "Loading...")
-        </h1>
+@* Top nav bar *@
+<header class="flex items-center justify-between px-6 h-14 border-b border-white/5 bg-transparent flex-shrink-0">
+    <nav class="flex items-center gap-2 text-sm font-medium">
+        <a href="/" class="text-on-surface-variant hover:text-on-surface transition-colors">Workspace</a>
+        <span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+        <span class="text-on-surface-variant hover:text-on-surface transition-colors cursor-default">Boards</span>
+        <span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+        <span class="text-primary font-semibold">@(_state.Board?.Name ?? "Loading...")</span>
+    </nav>
+    <div class="flex items-center gap-4">
+        <div class="hidden lg:flex items-center bg-surface-container-high rounded-full px-4 py-1.5 border border-white/5 gap-2">
+            <span class="material-symbols-outlined text-on-surface-variant text-base">search</span>
+            <input class="bg-transparent border-none focus:ring-0 text-xs w-40 text-on-surface placeholder-on-surface-variant/50 focus:outline-none"
+                   placeholder="Search cards..." />
+        </div>
+        <PresenceAvatars Users="_state.ActiveUsers" />
+        <ConnectionStatus State="_signalR.State" />
+        <button class="btn-gradient px-4 py-1.5 rounded-lg text-xs font-headline font-bold text-white hover:opacity-90 transition-all"
+                @onclick="() => _showAddColumn = true">
+            New Card
+        </button>
     </div>
-    <PresenceAvatars Users="_state.ActiveUsers" />
-    <ConnectionStatus State="_signalR.State" />
 </header>
 
-@* Error banner *@
-@if (_state.LoadError is not null)
-{
-    <div class="border-b border-red-900 bg-red-950/40 px-4 py-2 text-xs text-red-400">
-        ⚠ Failed to load board: @_state.LoadError
-    </div>
-}
+@* Board title bar *@
+<div class="px-8 pt-6 pb-4 flex-shrink-0">
+    <h2 class="text-2xl font-headline font-extrabold text-on-surface tracking-tight">@(_state.Board?.Name ?? "")</h2>
+    @if (_state.LoadError is not null)
+    {
+        <p class="mt-1 text-xs text-error">⚠ @_state.LoadError</p>
+    }
+</div>
 
 @* Board canvas *@
-<div class="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 py-3">
+<div class="flex flex-1 gap-5 overflow-x-auto overflow-y-hidden px-8 pb-6">
     @if (_state.IsLoading)
     {
         @for (int i = 0; i < 4; i++)
@@ -160,12 +174,12 @@
 <ConflictDialog Conflict="_state.PendingConflict"
                 Dismissed="OnConflictDismissed" />
 
-@* Activity toggle button *@
 @if (!_showActivity && _state.Board is not null)
 {
-    <button class="fixed bottom-4 right-4 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5
-                   text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 shadow-lg transition-colors"
+    <button class="fixed bottom-6 right-6 glass-panel rounded-full border border-white/10 px-4 py-2
+                   text-xs font-medium text-on-surface-variant hover:text-on-surface shadow-xl transition-colors"
             @onclick='() => _showActivity = true'>
+        <span class="material-symbols-outlined text-sm align-middle mr-1">history</span>
         Activity (@_state.RecentActivity.Count)
     </button>
 }
