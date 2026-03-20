@@ -293,8 +293,9 @@
         if (response.IsSuccessStatusCode)
         {
             _selectedCard = null;
-            if (_signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
-                _state.ApplyCardDeleted(cardId);
+            // Always remove locally — ApplyCardDeleted is idempotent so SignalR
+            // firing the same event afterward is a safe no-op
+            _state.ApplyCardDeleted(cardId);
         }
     }
 
@@ -430,21 +431,18 @@
         var newIdx = Math.Clamp(idx + args.Delta, 0, cols.Count - 1);
         if (newIdx == idx) return;
 
-        var colA = cols[idx];
-        var colB = cols[newIdx];
-
-        // Optimistic swap — instant visual feedback, no reload flicker
+        // Optimistic swap — instant visual feedback
         _state.OptimisticSwapColumns(args.ColumnId, args.Delta);
 
-        await Task.WhenAll(
-            HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colA.Id}",
-                new UpdateColumnRequest(colA.Title, colA.Color, colB.Position)),
-            HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colB.Id}",
-                new UpdateColumnRequest(colB.Title, colB.Color, colA.Position)));
+        // Normalize ALL positions to 0,1,2,... after the swap to prevent DB drift
+        // that causes "only pairs can swap" issues
+        var reordered = _state.Board.Columns.OrderBy(c => c.Position).ToList();
+        await Task.WhenAll(reordered.Select((col, i) =>
+            HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{col.Id}",
+                new UpdateColumnRequest(col.Title, col.Color, i))));
 
-        // Only reload if SignalR isn't connected to sync the final server state
-        if (_signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
-            await _state.LoadBoardAsync(BoardId);
+        // Always reload to confirm canonical server positions
+        await _state.LoadBoardAsync(BoardId);
     }
 
     async Task OnConflictDismissed(ConflictResolution resolution)
