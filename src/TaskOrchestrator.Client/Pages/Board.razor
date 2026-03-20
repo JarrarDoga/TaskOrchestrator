@@ -289,14 +289,25 @@
 
     async Task OnCardDeleted(int cardId)
     {
-        var response = await HttpClient.DeleteAsync($"/api/cards/{cardId}");
-        if (response.IsSuccessStatusCode)
+        try
         {
-            _selectedCard = null;
-            // Always remove locally — ApplyCardDeleted is idempotent so SignalR
-            // firing the same event afterward is a safe no-op
-            _state.ApplyCardDeleted(cardId);
+            var response = await HttpClient.DeleteAsync($"/api/cards/{cardId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _selectedCard = null;
+                _state.ApplyCardDeleted(cardId);
+                return;
+            }
         }
+        catch
+        {
+            // Network error (e.g. Railway cold-start drops the response).
+            // Fall through: close the drawer and reload from server so the UI
+            // reflects whatever state the server actually ended up in.
+        }
+
+        _selectedCard = null;
+        await _state.LoadBoardAsync(BoardId);
     }
 
     void OnAttachmentUploaded(AttachmentDto att)
