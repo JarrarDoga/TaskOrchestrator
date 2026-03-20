@@ -1,4 +1,5 @@
 using Dapper;
+using TaskOrchestrator.Shared.Contracts;
 
 namespace TaskOrchestrator.Api.Persistence.Repositories;
 
@@ -18,5 +19,20 @@ public sealed class UserRepository(IDbConnectionFactory db) : IUserRepository
                 LastSeenAt  = UTC_TIMESTAMP(3)
             """,
             new { Id = id, DisplayName = displayName ?? id, email, avatarUrl });
+    }
+
+    public async Task<IEnumerable<UserSearchDto>> SearchAsync(string query, int limit = 10)
+    {
+        using var conn = db.CreateConnection();
+        var like = $"%{query}%";
+        return await conn.QueryAsync<UserSearchDto>(
+            """
+            SELECT Id AS UserId, DisplayName, AvatarUrl, Email
+            FROM Users
+            WHERE DisplayName LIKE @Like OR Email LIKE @Like
+            ORDER BY DisplayName
+            LIMIT @Limit
+            """,
+            new { Like = like, Limit = limit });
     }
 }

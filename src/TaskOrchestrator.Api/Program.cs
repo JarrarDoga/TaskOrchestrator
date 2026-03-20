@@ -6,6 +6,7 @@ using TaskOrchestrator.Api.Features.Cards;
 using TaskOrchestrator.Api.Features.Columns;
 using TaskOrchestrator.Api.Features.Me;
 using TaskOrchestrator.Api.Features.Members;
+using TaskOrchestrator.Api.Features.Teams;
 using TaskOrchestrator.Api.Hubs;
 using TaskOrchestrator.Api.Persistence;
 using TaskOrchestrator.Api.Persistence.Repositories;
@@ -62,6 +63,7 @@ builder.Services.AddScoped<IUserRepository,        UserRepository>();
 builder.Services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
 builder.Services.AddScoped<IInviteRepository,      InviteRepository>();
 builder.Services.AddScoped<IColumnRepository,      ColumnRepository>();
+builder.Services.AddScoped<ITeamRepository,        TeamRepository>();
 
 // --- User context (reads JWT claims) ---
 builder.Services.AddScoped<IUserContext, UserContext>();
@@ -109,5 +111,6 @@ app.MapMeEndpoints();
 app.MapMemberEndpoints();
 app.MapJoinEndpoint();
 app.MapColumnEndpoints();
+app.MapTeamEndpoints();
 
 app.Run();

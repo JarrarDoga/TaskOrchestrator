@@ -1,0 +1,457 @@
+@page "/teams"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+@using TaskOrchestrator.Shared.Contracts
+
+<PageTitle>Orchestrator — Teams</PageTitle>
+
+<div class="flex flex-col h-full overflow-y-auto">
+
+    @* Header *@
+    <div class="flex items-end justify-between px-10 pt-10 pb-6">
+        <div>
+            <h1 class="text-4xl font-headline font-extrabold text-on-surface tracking-tight mb-1">Active Teams</h1>
+            <p class="text-on-surface-variant font-body">Manage your organization's architectural pillars and squads.</p>
+        </div>
+        <button @onclick="() => _showCreate = true"
+                class="btn-gradient text-white px-6 py-3 rounded-xl font-headline font-bold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20">
+            <span class="material-symbols-outlined text-lg">group_add</span>
+            Create Team
+        </button>
+    </div>
+
+    @* Team grid *@
+    <div class="px-10">
+        @if (_loading)
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @for (var i = 0; i < 3; i++) {
+                    <div class="h-52 rounded-xl bg-surface-container-high animate-pulse"></div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                @foreach (var team in _teams)
+                {
+                    var t = team; // capture for closures
+                    <div class="group relative bg-surface-container-low rounded-xl p-6 transition-all duration-300
+                                hover:bg-surface-bright border-l-4 border-transparent hover:border-primary
+                                shadow-2xl shadow-black/20">
+
+                        @* Card header *@
+                        <div class="flex justify-between items-start mb-6">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                    <span class="material-symbols-outlined text-3xl">@t.Icon</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-headline font-bold text-lg text-on-surface">@t.Name</h3>
+                                    <p class="text-xs text-on-surface-variant font-medium">@t.Slug</p>
+                                </div>
+                            </div>
+                            <button @onclick="() => DeleteTeam(t)"
+                                    class="material-symbols-outlined text-on-surface-variant group-hover:text-error
+                                           hover:text-error transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                                    title="Delete team">
+                                delete
+                            </button>
+                        </div>
+
+                        @* Stats *@
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-surface-container-highest/40 rounded-lg p-3">
+                                <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Members</span>
+                                <span class="text-xl font-bold font-headline text-on-surface">@t.MemberCount</span>
+                            </div>
+                            <div class="bg-surface-container-highest/40 rounded-lg p-3">
+                                <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Visibility</span>
+                                <span class="text-xl font-bold font-headline text-on-surface">@(t.IsPublic ? "Public" : "Private")</span>
+                            </div>
+                        </div>
+
+                        @* Members avatar row *@
+                        <div class="flex items-center justify-between">
+                            <div class="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold uppercase tracking-wider">
+                                @t.MemberCount @(t.MemberCount == 1 ? "Member" : "Members")
+                            </div>
+                            <div class="flex -space-x-2">
+                                @foreach (var member in t.Members.Take(3))
+                                {
+                                    @if (!string.IsNullOrEmpty(member.AvatarUrl))
+                                    {
+                                        <img class="w-6 h-6 rounded-full border-2 border-surface object-cover"
+                                             src="@member.AvatarUrl" alt="@member.DisplayName" title="@member.DisplayName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="w-6 h-6 rounded-full border-2 border-surface bg-primary-container
+                                                    flex items-center justify-center text-[10px] font-bold text-on-primary-container"
+                                             title="@member.DisplayName">
+                                            @member.DisplayName[..1].ToUpper()
+                                        </div>
+                                    }
+                                }
+                                @if (t.MemberCount > 3)
+                                {
+                                    <div class="w-6 h-6 rounded-full border-2 border-surface bg-surface-container-highest
+                                                flex items-center justify-center text-[10px] font-bold">
+                                        +@(t.MemberCount - 3)
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* Create new placeholder card *@
+                <div @onclick="() => _showCreate = true"
+                     class="group relative bg-transparent rounded-xl p-6 border-2 border-dashed border-outline-variant/30
+                            flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-primary/5
+                            transition-all cursor-pointer">
+                    <div class="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-outline text-4xl group-hover:text-primary">add_circle</span>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="font-headline font-bold text-lg text-on-surface-variant group-hover:text-on-surface">New Architecture</h3>
+                        <p class="text-xs text-outline font-medium">Provision a new squad</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* Stats panel *@
+    <div class="px-10 py-10">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-3 glass-panel rounded-xl p-8 flex items-center justify-between border border-white/5">
+                <div>
+                    <p class="text-primary font-bold uppercase tracking-[0.2em] text-[10px] mb-2">Organization Overview</p>
+                    <h4 class="text-2xl font-headline font-bold text-on-surface mb-4">
+                        @_teams.Count active @(_teams.Count == 1 ? "team" : "teams") across your organization.
+                    </h4>
+                    <div class="flex gap-8">
+                        <div class="space-y-1">
+                            <span class="text-outline text-xs block">Total Teams</span>
+                            <span class="text-2xl font-headline font-bold text-on-surface">@_teams.Count</span>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-outline text-xs block">Total Members</span>
+                            <span class="text-2xl font-headline font-bold text-on-surface">@_teams.Sum(t => t.MemberCount)</span>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-outline text-xs block">Public Teams</span>
+                            <span class="text-2xl font-headline font-bold text-on-surface">@_teams.Count(t => t.IsPublic)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden lg:flex items-end gap-1 h-24 opacity-50">
+                    @for (var i = 0; i < 7; i++) {
+                        var h = new[] { 40, 60, 50, 80, 70, 90, 100 }[i];
+                        <div class="w-2 bg-primary rounded-t-sm" style="height: @(h)%"></div>
+                    }
+                </div>
+            </div>
+            <div class="bg-surface-container-highest rounded-xl p-6 border border-white/5 flex flex-col justify-between">
+                <span class="material-symbols-outlined text-tertiary text-3xl">verified_user</span>
+                <div>
+                    <h5 class="text-on-surface font-headline font-bold">Admin Controls</h5>
+                    <p class="text-xs text-on-surface-variant mb-4">Global permissions and security policies.</p>
+                    <button class="w-full py-2 bg-surface rounded-lg text-xs font-bold hover:bg-surface-bright transition-colors border border-outline-variant/30">
+                        Configure
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@* Create Team Modal *@
+@if (_showCreate)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+         @onclick="CloseModal">
+        <div class="glass-panel w-full max-w-xl rounded-xl shadow-[0_24px_40px_-4px_rgba(0,0,0,0.4)] overflow-hidden"
+             @onclick:stopPropagation>
+
+            @* Modal header *@
+            <div class="px-8 pt-8 pb-6 flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold font-headline text-on-surface tracking-tight">Create Team</h2>
+                    <p class="text-on-surface-variant text-sm mt-1">Establish a new collaborative space for your engineering units.</p>
+                </div>
+                <button @onclick="CloseModal" class="text-on-surface-variant hover:text-on-surface transition-colors p-1">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+            </div>
+
+            @* Modal form *@
+            <div class="px-8 pb-8 space-y-8">
+
+                @* Team Name *@
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Team Name</label>
+                    <input @bind="_newName" @bind:event="oninput"
+                           placeholder="e.g. Core Architecture"
+                           class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary
+                                  focus:ring-0 transition-all text-on-surface font-medium px-0 py-3 placeholder:text-outline text-lg outline-none" />
+                    @if (_createError is not null)
+                    {
+                        <p class="text-xs text-error">@_createError</p>
+                    }
+                </div>
+
+                @* Team Description *@
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Team Description</label>
+                    <textarea @bind="_newDescription"
+                              placeholder="Define the primary focus and objectives of this team..."
+                              rows="3"
+                              class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary
+                                     focus:ring-0 transition-all text-on-surface px-0 py-3 placeholder:text-outline resize-none outline-none"></textarea>
+                </div>
+
+                @* Invite Members *@
+                <div class="space-y-3">
+                    <label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Invite Members</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline">person_add</span>
+                        <input value="@_memberSearch" @oninput="OnMemberSearchChanged"
+                               placeholder="Search by name or email address"
+                               class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary
+                                      focus:ring-0 transition-all text-on-surface pl-8 py-3 placeholder:text-outline outline-none" />
+                    </div>
+
+                    @* Search results dropdown *@
+                    @if (_searchResults.Count > 0)
+                    {
+                        <div class="bg-surface-container-high rounded-xl border border-outline-variant/30 overflow-hidden">
+                            @foreach (var result in _searchResults)
+                            {
+                                var r = result;
+                                <button @onclick="() => AddMemberToInviteList(r)"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-bright transition-colors text-left">
+                                    @if (!string.IsNullOrEmpty(r.AvatarUrl))
+                                    {
+                                        <img class="w-7 h-7 rounded-full object-cover" src="@r.AvatarUrl" alt="@r.DisplayName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-xs font-bold text-on-primary-container">
+                                            @r.DisplayName[..1].ToUpper()
+                                        </div>
+                                    }
+                                    <div>
+                                        <p class="text-sm font-medium text-on-surface">@r.DisplayName</p>
+                                        <p class="text-xs text-on-surface-variant">@r.Email</p>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @* Selected members chips *@
+                    @if (_invitedMembers.Count > 0)
+                    {
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            @foreach (var member in _invitedMembers)
+                            {
+                                var m = member;
+                                <div class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full text-sm border border-outline-variant/15">
+                                    @if (!string.IsNullOrEmpty(m.AvatarUrl))
+                                    {
+                                        <img class="w-5 h-5 rounded-full object-cover" src="@m.AvatarUrl" alt="@m.DisplayName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="w-5 h-5 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container">
+                                            @m.DisplayName[..1].ToUpper()
+                                        </div>
+                                    }
+                                    <span>@m.DisplayName</span>
+                                    <button @onclick="() => _invitedMembers.Remove(m)"
+                                            class="material-symbols-outlined text-sm text-outline hover:text-error leading-none">
+                                        close
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @* Privacy toggle *@
+                <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-outline-variant/15">
+                    <div class="flex gap-4">
+                        <span class="material-symbols-outlined text-on-surface-variant">@(_isPublic ? "public" : "lock")</span>
+                        <div>
+                            <p class="text-sm font-semibold text-on-surface">Privacy Settings</p>
+                            <p class="text-xs text-on-surface-variant">@(_isPublic ? "Public — visible to everyone in Orchestrator" : "Private — invite-only")</p>
+                        </div>
+                    </div>
+                    <button @onclick="() => _isPublic = !_isPublic"
+                            class="@(_isPublic ? "bg-primary" : "bg-outline-variant") relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors">
+                        <span class="@(_isPublic ? "translate-x-5" : "translate-x-0") pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+
+                @* Actions *@
+                <div class="flex items-center justify-end gap-6 pt-4">
+                    <button @onclick="CloseModal"
+                            class="text-on-surface-variant font-headline font-bold hover:text-on-surface transition-all tracking-wide text-sm">
+                        Cancel
+                    </button>
+                    <button @onclick="CreateTeam" disabled="@_creating"
+                            class="bg-gradient-to-br from-primary to-primary-dim text-on-primary px-8 py-3 rounded-xl
+                                   font-headline font-bold shadow-lg shadow-primary/20 hover:scale-95 active:scale-90
+                                   transition-all tracking-wide disabled:opacity-50">
+                        @(_creating ? "Creating..." : "Create Team")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    bool _loading = true;
+    bool _showCreate;
+    bool _creating;
+    bool _isPublic = true;
+
+    string _newName = "";
+    string _newDescription = "";
+    string _memberSearch = "";
+    string? _createError;
+
+    List<TeamDto> _teams = [];
+    List<UserSearchDto> _searchResults = [];
+    List<UserSearchDto> _invitedMembers = [];
+
+    private System.Threading.CancellationTokenSource? _searchCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeams();
+    }
+
+    async Task LoadTeams()
+    {
+        _loading = true;
+        try
+        {
+            var result = await Http.GetFromJsonAsync<List<TeamDto>>("/api/teams");
+            _teams = result ?? [];
+        }
+        catch
+        {
+            _teams = [];
+        }
+        _loading = false;
+    }
+
+    async Task OnMemberSearchChanged(ChangeEventArgs e)
+    {
+        var q = e.Value?.ToString() ?? "";
+        _memberSearch = q;
+
+        _searchCts?.Cancel();
+        _searchCts = new System.Threading.CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        if (q.Length < 2)
+        {
+            _searchResults = [];
+            return;
+        }
+
+        await Task.Delay(300, token).ContinueWith(async t =>
+        {
+            if (t.IsCanceled) return;
+            try
+            {
+                var results = await Http.GetFromJsonAsync<List<UserSearchDto>>($"/api/users/search?q={Uri.EscapeDataString(q)}");
+                _searchResults = (results ?? [])
+                    .Where(r => !_invitedMembers.Any(m => m.UserId == r.UserId))
+                    .ToList();
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { }
+        });
+    }
+
+    void AddMemberToInviteList(UserSearchDto user)
+    {
+        if (!_invitedMembers.Any(m => m.UserId == user.UserId))
+            _invitedMembers.Add(user);
+        _searchResults = [];
+        _memberSearch = "";
+    }
+
+    async Task CreateTeam()
+    {
+        _createError = null;
+
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            _createError = "Team name is required.";
+            return;
+        }
+
+        _creating = true;
+        try
+        {
+            var request = new CreateTeamRequest(
+                _newName.Trim(),
+                string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription.Trim(),
+                null,
+                _isPublic,
+                _invitedMembers.Select(m => m.UserId).ToList()
+            );
+
+            var response = await Http.PostAsJsonAsync("/api/teams", request);
+            if (response.IsSuccessStatusCode)
+            {
+                CloseModal();
+                await LoadTeams();
+            }
+            else
+            {
+                _createError = "Failed to create team. Please try again.";
+            }
+        }
+        catch
+        {
+            _createError = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    async Task DeleteTeam(TeamDto team)
+    {
+        var response = await Http.DeleteAsync($"/api/teams/{team.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            _teams.Remove(team);
+        }
+    }
+
+    void CloseModal()
+    {
+        _showCreate = false;
+        _newName = "";
+        _newDescription = "";
+        _memberSearch = "";
+        _createError = null;
+        _isPublic = true;
+        _invitedMembers = [];
+        _searchResults = [];
+    }
+}
