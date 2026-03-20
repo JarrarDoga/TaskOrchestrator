@@ -168,7 +168,15 @@
                 {
                     <p class="mr-auto text-xs text-error">@_saveError</p>
                 }
-                @if (_editing)
+                @if (_confirmDelete)
+                {
+                    <p class="mr-auto text-xs text-error font-semibold">Delete this card?</p>
+                    <button class="rounded-xl border border-outline-variant px-4 py-3 text-sm font-headline font-bold text-on-surface-variant hover:bg-white/5 transition-colors"
+                            @onclick="() => _confirmDelete = false">No, keep it</button>
+                    <button class="rounded-xl bg-error px-4 py-3 text-sm font-headline font-bold text-white hover:opacity-90 transition-all"
+                            @onclick="ConfirmDelete">Yes, delete</button>
+                }
+                else if (_editing)
                 {
                     <button class="flex-1 rounded-xl border border-outline-variant px-4 py-3 text-sm font-headline font-bold text-on-surface-variant hover:bg-white/5 transition-colors"
                             @onclick="CancelEdit">Cancel</button>
@@ -177,8 +185,12 @@
                 }
                 else
                 {
+                    <button class="p-2 rounded-xl border border-error/30 text-error hover:bg-error/10 transition-colors flex-shrink-0" title="Delete card"
+                            @onclick="() => _confirmDelete = true">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
                     <button class="flex-1 rounded-xl border border-outline-variant px-4 py-3 text-sm font-headline font-bold text-on-surface-variant hover:bg-white/5 transition-colors"
-                            @onclick="Close">Cancel</button>
+                            @onclick="Close">Close</button>
                     <button class="flex-1 btn-gradient rounded-xl px-4 py-3 text-sm font-headline font-bold text-white hover:opacity-90 transition-all"
                             @onclick="StartEdit">Edit</button>
                 }
@@ -191,10 +203,11 @@
     [Parameter] public CardDto? Card { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
     [Parameter] public EventCallback<CardDto> OnSaved { get; set; }
+    [Parameter] public EventCallback<int> OnDeleted { get; set; }
     [Parameter] public EventCallback<AttachmentDto> OnAttachmentUploaded { get; set; }
 
     InputFile? _inputFile;
-    bool _editing, _uploading;
+    bool _editing, _uploading, _confirmDelete;
     string? _uploadError;
     string? _saveError;
     string _editTitle = "";
@@ -209,6 +222,7 @@
         _editTitle = Card.Title;
         _editDescription = Card.Description;
         _editPriority = Card.Priority;
+        _confirmDelete = false;
         await LoadActivityAsync();
     }
 
@@ -334,6 +348,12 @@
         var apiBase = Configuration["ApiBaseUrl"] ?? "http://localhost:5041";
         var url = att.Url.StartsWith("http") ? att.Url : $"{apiBase}{att.Url}";
         await JS.InvokeVoidAsync("downloadFileWithAuth", url, token.Value, att.FileName);
+    }
+
+    async Task ConfirmDelete()
+    {
+        if (Card is null) return;
+        await OnDeleted.InvokeAsync(Card.Id);
     }
 
     async Task Close() => await OnClosed.InvokeAsync();

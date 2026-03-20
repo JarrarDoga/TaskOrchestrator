@@ -168,6 +168,7 @@
 <CardDetailDrawer Card="_selectedCard"
                   OnClosed="() => _selectedCard = null"
                   OnSaved="OnCardSaved"
+                  OnDeleted="OnCardDeleted"
                   OnAttachmentUploaded="OnAttachmentUploaded" />
 
 @* Conflict dialog *@
@@ -284,6 +285,17 @@
     {
         _state.ApplyCardUpdated(updated);
         _selectedCard = updated;
+    }
+
+    async Task OnCardDeleted(int cardId)
+    {
+        var response = await HttpClient.DeleteAsync($"/api/cards/{cardId}");
+        if (response.IsSuccessStatusCode)
+        {
+            _selectedCard = null;
+            if (_signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+                _state.ApplyCardDeleted(cardId);
+        }
     }
 
     void OnAttachmentUploaded(AttachmentDto att)
@@ -421,13 +433,18 @@
         var colA = cols[idx];
         var colB = cols[newIdx];
 
+        // Optimistic swap — instant visual feedback, no reload flicker
+        _state.OptimisticSwapColumns(args.ColumnId, args.Delta);
+
         await Task.WhenAll(
             HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colA.Id}",
                 new UpdateColumnRequest(colA.Title, colA.Color, colB.Position)),
             HttpClient.PatchAsJsonAsync($"/api/boards/{BoardId}/columns/{colB.Id}",
                 new UpdateColumnRequest(colB.Title, colB.Color, colA.Position)));
 
-        await _state.LoadBoardAsync(BoardId);
+        // Only reload if SignalR isn't connected to sync the final server state
+        if (_signalR.State != Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected)
+            await _state.LoadBoardAsync(BoardId);
     }
 
     async Task OnConflictDismissed(ConflictResolution resolution)

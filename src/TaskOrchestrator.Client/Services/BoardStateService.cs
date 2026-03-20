@@ -207,6 +207,24 @@ public sealed class BoardStateService(HttpClient http)
         NotifyChange();
     }
 
+    public void OptimisticSwapColumns(int columnId, int delta)
+    {
+        if (Board is null) return;
+        var cols = Board.Columns.OrderBy(c => c.Position).ToList();
+        var idx = cols.FindIndex(c => c.Id == columnId);
+        if (idx < 0) return;
+        var newIdx = Math.Clamp(idx + delta, 0, cols.Count - 1);
+        if (newIdx == idx) return;
+
+        var posA = cols[idx].Position;
+        var posB = cols[newIdx].Position;
+        cols[idx] = cols[idx] with { Position = posB };
+        cols[newIdx] = cols[newIdx] with { Position = posA };
+
+        Board = Board with { Columns = cols };
+        NotifyChange();
+    }
+
     public void SetConflict(ConflictInfo conflict)
     {
         PendingConflict = conflict;
