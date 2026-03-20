@@ -70,10 +70,11 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var slug = GenerateSlug(request.Name);
         var icon = string.IsNullOrWhiteSpace(request.Icon) ? "group" : request.Icon;
 
-        await conn.ExecuteAsync(
+        var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Teams (Name, Description, Slug, Icon, IsPublic, CreatedByUserId)
-            VALUES (@Name, @Description, @Slug, @Icon, @IsPublic, @CreatedByUserId)
+            VALUES (@Name, @Description, @Slug, @Icon, @IsPublic, @CreatedByUserId);
+            SELECT LAST_INSERT_ID();
             """,
             new
             {
@@ -84,8 +85,6 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
                 IsPublic = request.IsPublic ? 1 : 0,
                 CreatedByUserId = ownerUserId,
             });
-
-        var id = await conn.ExecuteScalarAsync<int>("SELECT LAST_INSERT_ID()");
 
         // Owner is always a member
         await conn.ExecuteAsync(
