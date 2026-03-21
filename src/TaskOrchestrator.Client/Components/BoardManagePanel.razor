@@ -184,6 +184,22 @@
                                 @onclick="CopyJoinLink">
                             Copy Join Link
                         </button>
+                        <div class="pt-2 border-t border-outline-variant/20 space-y-2">
+                            <p class="text-xs text-on-surface-variant">Send invite emails (comma-separated):</p>
+                            <textarea @bind="_emailInviteInput"
+                                      rows="2"
+                                      placeholder="alice@company.com, bob@company.com"
+                                      class="w-full rounded-lg border border-outline-variant bg-surface-container-high px-3 py-2 text-xs text-on-surface placeholder-on-surface-variant/50 focus:border-primary focus:outline-none"></textarea>
+                            <button class="w-full px-3 py-2 rounded-lg btn-gradient text-white text-xs font-semibold disabled:opacity-50"
+                                    disabled="@_sendingEmailInvites"
+                                    @onclick="SendInviteEmails">
+                                @(_sendingEmailInvites ? "Sending..." : "Send Invite Emails")
+                            </button>
+                            @if (_emailInviteMessage is not null)
+                            {
+                                <p class="text-xs text-on-surface-variant">@_emailInviteMessage</p>
+                            }
+                        </div>
                     </div>
                 }
                 <div class="flex gap-3">
@@ -218,9 +234,12 @@
     bool _showPermissions;
     bool _deletingBoard;
     bool _confirmDelete;
+    bool _sendingEmailInvites;
 
     string _manualSearch = "";
     string? _manualMessage;
+    string _emailInviteInput = "";
+    string? _emailInviteMessage;
     List<UserSearchDto> _manualSearchResults = [];
     System.Threading.CancellationTokenSource? _manualSearchCts;
 
@@ -234,6 +253,8 @@
         _manualMessage = null;
         _manualSearch = "";
         _manualSearchResults = [];
+        _emailInviteInput = "";
+        _emailInviteMessage = null;
         _showManualAdd = false;
         _showPermissions = false;
         _confirmDelete = false;
@@ -394,6 +415,50 @@
         var joinUrl = $"{Nav.BaseUri.TrimEnd('/')}/join/{_invite.Code}";
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", joinUrl);
         _manualMessage = "Join link copied to clipboard.";
+    }
+
+    async Task SendInviteEmails()
+    {
+        _emailInviteMessage = null;
+        var raw = _emailInviteInput?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            _emailInviteMessage = "Enter at least one email.";
+            return;
+        }
+
+        _sendingEmailInvites = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync(
+                $"/api/boards/{BoardId}/invite/email",
+                new SendBoardInviteEmailRequest([raw]));
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                _emailInviteMessage = $"Invite send failed ({(int)resp.StatusCode}).";
+                return;
+            }
+
+            var data = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            var sent = data.TryGetProperty("sent", out var sentEl) ? sentEl.GetInt32() : 0;
+            var failed = data.TryGetProperty("failed", out var failedEl) && failedEl.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? failedEl.GetArrayLength()
+                : 0;
+
+            _emailInviteMessage = failed == 0
+                ? $"Sent {sent} invite email(s)."
+                : $"Sent {sent} invite email(s), {failed} failed.";
+            _emailInviteInput = "";
+        }
+        catch
+        {
+            _emailInviteMessage = "Failed to send invite emails.";
+        }
+        finally
+        {
+            _sendingEmailInvites = false;
+        }
     }
 
     async Task DeleteBoard()

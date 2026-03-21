@@ -23,3 +23,7 @@ public record GenerateInviteRequest(DateTime? ExpiresAt, int? MaxUses);
 public record TransferOwnershipRequest(string NewOwnerUserId);
 
 public record AddBoardMemberRequest(string UserId);
+
+public record SendBoardInviteEmailRequest(
+    IReadOnlyList<string> Emails
+);
