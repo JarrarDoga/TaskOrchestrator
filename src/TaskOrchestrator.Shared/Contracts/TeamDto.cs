@@ -16,6 +16,7 @@ public record TeamDto(
     string Icon,
     bool IsPublic,
     int MemberCount,
+    int BoardCount,
     DateTime CreatedAt,
     string CreatedByUserId,
     IReadOnlyList<TeamMemberDto> Members
@@ -34,4 +35,17 @@ public record UserSearchDto(
     string DisplayName,
     string? AvatarUrl,
     string? Email
+);
+
+public record TeamBoardDto(
+    int Id,
+    string Name,
+    string? Description,
+    DateTime CreatedAt,
+    int Version
+);
+
+public record TeamCreateBoardRequest(
+    string Name,
+    string? Description
 );

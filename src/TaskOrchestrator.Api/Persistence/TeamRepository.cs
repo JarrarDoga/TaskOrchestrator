@@ -14,10 +14,13 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var teams = (await conn.QueryAsync<TeamRow>(
             """
             SELECT DISTINCT t.Id, t.Name, t.Description, t.Slug, t.Icon, t.IsPublic,
-                   t.CreatedAt, t.CreatedByUserId
+                   t.CreatedAt, t.CreatedByUserId,
+                   COUNT(b.Id) AS BoardCount
             FROM Teams t
             LEFT JOIN TeamMembers tm ON tm.TeamId = t.Id AND tm.UserId = @UserId
+            LEFT JOIN Boards b ON b.TeamId = t.Id
             WHERE t.IsPublic = 1 OR tm.UserId IS NOT NULL
+            GROUP BY t.Id, t.Name, t.Description, t.Slug, t.Icon, t.IsPublic, t.CreatedAt, t.CreatedByUserId
             ORDER BY t.CreatedAt DESC
             """,
             new { UserId = userId })).ToList();
@@ -45,7 +48,15 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         using var conn = db.CreateConnection();
 
         var team = await conn.QuerySingleOrDefaultAsync<TeamRow>(
-            "SELECT Id, Name, Description, Slug, Icon, IsPublic, CreatedAt, CreatedByUserId FROM Teams WHERE Id = @Id",
+            """
+            SELECT t.Id, t.Name, t.Description, t.Slug, t.Icon, t.IsPublic,
+                   t.CreatedAt, t.CreatedByUserId,
+                   COUNT(b.Id) AS BoardCount
+            FROM Teams t
+            LEFT JOIN Boards b ON b.TeamId = t.Id
+            WHERE t.Id = @Id
+            GROUP BY t.Id, t.Name, t.Description, t.Slug, t.Icon, t.IsPublic, t.CreatedAt, t.CreatedByUserId
+            """,
             new { Id = teamId });
 
         if (team is null) return null;
@@ -61,6 +72,20 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             new { TeamId = teamId })).ToList();
 
         return ToDto(team, members);
+    }
+
+    public async Task<IEnumerable<TeamBoardDto>> GetBoardsAsync(int teamId, string userId)
+    {
+        using var conn = db.CreateConnection();
+        return await conn.QueryAsync<TeamBoardDto>(
+            """
+            SELECT b.Id, b.Name, b.Description, b.CreatedAt, b.Version
+            FROM Boards b
+            INNER JOIN BoardMembers bm ON bm.BoardId = b.Id AND bm.UserId = @UserId
+            WHERE b.TeamId = @TeamId
+            ORDER BY b.CreatedAt DESC
+            """,
+            new { TeamId = teamId, UserId = userId });
     }
 
     public async Task<TeamDto> CreateAsync(CreateTeamRequest request, string ownerUserId)
@@ -121,6 +146,15 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         return role == "Owner";
     }
 
+    public async Task<bool> IsMemberAsync(int teamId, string userId)
+    {
+        using var conn = db.CreateConnection();
+        var count = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM TeamMembers WHERE TeamId = @TeamId AND UserId = @UserId",
+            new { TeamId = teamId, UserId = userId });
+        return count > 0;
+    }
+
     public async Task AddMemberAsync(int teamId, string userId)
     {
         using var conn = db.CreateConnection();
@@ -148,6 +182,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             t.Icon,
             t.IsPublic,
             members.Count,
+            t.BoardCount,
             t.CreatedAt,
             t.CreatedByUserId,
             members.Select(m => new TeamMemberDto(m.UserId, m.DisplayName, m.AvatarUrl, m.Role, m.JoinedAt)).ToList()
@@ -161,7 +196,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     // Private projection types
     sealed record TeamRow(
         int Id, string Name, string? Description, string Slug, string Icon,
-        bool IsPublic, DateTime CreatedAt, string CreatedByUserId);
+        bool IsPublic, DateTime CreatedAt, string CreatedByUserId, int BoardCount);
 
     sealed record TeamMemberRow(
         int TeamId, string UserId, string DisplayName, string? AvatarUrl, string Role, DateTime JoinedAt);

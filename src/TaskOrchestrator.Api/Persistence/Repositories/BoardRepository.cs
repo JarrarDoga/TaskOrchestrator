@@ -11,8 +11,12 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
         using var conn = db.CreateConnection();
         return await conn.QueryAsync<BoardDto>(
             """
-            SELECT b.Id, b.Name, b.Description, b.CreatedAt, b.Version
+            SELECT b.Id, b.Name, b.Description,
+                   b.TeamId,
+                   t.Name AS TeamName,
+                   b.CreatedAt, b.Version
             FROM Boards b
+            LEFT JOIN Teams t ON t.Id = b.TeamId
             INNER JOIN BoardMembers bm ON bm.BoardId = b.Id
             WHERE bm.UserId = @UserId
             ORDER BY bm.JoinedAt DESC
@@ -20,12 +24,38 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
             new { UserId = userId });
     }
 
+    public async Task<IEnumerable<BoardDto>> GetByTeamAsync(int teamId, string userId)
+    {
+        using var conn = db.CreateConnection();
+        return await conn.QueryAsync<BoardDto>(
+            """
+            SELECT b.Id, b.Name, b.Description,
+                   b.TeamId,
+                   t.Name AS TeamName,
+                   b.CreatedAt, b.Version
+            FROM Boards b
+            INNER JOIN Teams t ON t.Id = b.TeamId
+            INNER JOIN BoardMembers bm ON bm.BoardId = b.Id
+            WHERE b.TeamId = @TeamId AND bm.UserId = @UserId
+            ORDER BY b.CreatedAt DESC
+            """,
+            new { TeamId = teamId, UserId = userId });
+    }
+
     public async Task<BoardDetailDto?> GetDetailAsync(int boardId)
     {
         using var conn = db.CreateConnection();
 
         var board = await conn.QuerySingleOrDefaultAsync<BoardDto>(
-            "SELECT Id, Name, Description, CreatedAt, Version FROM Boards WHERE Id = @Id",
+            """
+            SELECT b.Id, b.Name, b.Description,
+                   b.TeamId,
+                   t.Name AS TeamName,
+                   b.CreatedAt, b.Version
+            FROM Boards b
+            LEFT JOIN Teams t ON t.Id = b.TeamId
+            WHERE b.Id = @Id
+            """,
             new { Id = boardId });
 
         if (board is null) return null;
@@ -71,7 +101,7 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
             .ToList();
 
         return new BoardDetailDto(board.Id, board.Name, board.Description,
-            board.CreatedAt, board.Version, columnsWithCards);
+            board.TeamId, board.TeamName, board.CreatedAt, board.Version, columnsWithCards);
     }
 
     public async Task<BoardDto> CreateAsync(CreateBoardRequest request, string ownerUserId)
@@ -82,17 +112,38 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
         // inserts are fast; add a transaction if you need strict atomicity.
         var id = await conn.ExecuteScalarAsync<int>(
             """
-            INSERT INTO Boards (Name, Description) VALUES (@Name, @Description);
+            INSERT INTO Boards (Name, Description, TeamId) VALUES (@Name, @Description, @TeamId);
             SELECT LAST_INSERT_ID();
             """,
-            new { request.Name, request.Description });
+            new { request.Name, request.Description, request.TeamId });
 
         await conn.ExecuteAsync(
             "INSERT INTO BoardMembers (BoardId, UserId, Role) VALUES (@BoardId, @UserId, 'Owner')",
             new { BoardId = id, UserId = ownerUserId });
 
+        if (request.TeamId.HasValue)
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT IGNORE INTO BoardMembers (BoardId, UserId, Role)
+                SELECT @BoardId, tm.UserId, 'Member'
+                FROM TeamMembers tm
+                WHERE tm.TeamId = @TeamId
+                  AND tm.UserId <> @OwnerUserId
+                """,
+                new { BoardId = id, TeamId = request.TeamId.Value, OwnerUserId = ownerUserId });
+        }
+
         return await conn.QuerySingleAsync<BoardDto>(
-            "SELECT Id, Name, Description, CreatedAt, Version FROM Boards WHERE Id = @Id",
+            """
+            SELECT b.Id, b.Name, b.Description,
+                   b.TeamId,
+                   t.Name AS TeamName,
+                   b.CreatedAt, b.Version
+            FROM Boards b
+            LEFT JOIN Teams t ON t.Id = b.TeamId
+            WHERE b.Id = @Id
+            """,
             new { Id = id });
     }
 

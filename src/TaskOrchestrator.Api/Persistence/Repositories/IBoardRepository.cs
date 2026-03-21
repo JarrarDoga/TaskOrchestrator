@@ -5,6 +5,7 @@ namespace TaskOrchestrator.Api.Persistence.Repositories;
 public interface IBoardRepository
 {
     Task<IEnumerable<BoardDto>> GetByUserAsync(string userId);
+    Task<IEnumerable<BoardDto>> GetByTeamAsync(int teamId, string userId);
     Task<BoardDetailDto?> GetDetailAsync(int boardId);
     Task<BoardDto> CreateAsync(CreateBoardRequest request, string ownerUserId);
     Task<bool> DeleteAsync(int boardId);
