@@ -35,4 +35,13 @@ public sealed class UserRepository(IDbConnectionFactory db) : IUserRepository
             """,
             new { Like = like, Limit = limit });
     }
+
+    public async Task<bool> ExistsAsync(string userId)
+    {
+        using var conn = db.CreateConnection();
+        var count = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Users WHERE Id = @UserId",
+            new { UserId = userId });
+        return count > 0;
+    }
 }

@@ -215,6 +215,27 @@
                             }
                         </div>
                     }
+
+                    @if (_pendingInviteEmails.Count > 0)
+                    {
+                        <div class="space-y-2">
+                            <p class="text-[11px] text-on-surface-variant">Pending email invites (account not found yet):</p>
+                            <p class="text-[11px] text-on-surface-variant">These people are not added automatically until they create an account and join through a board invite link.</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach (var email in _pendingInviteEmails)
+                                {
+                                    var pendingEmail = email;
+                                    <div class="flex items-center gap-2 bg-tertiary/10 text-tertiary px-3 py-1.5 rounded-full text-xs border border-tertiary/20">
+                                        <span>@pendingEmail</span>
+                                        <button @onclick="() => _pendingInviteEmails.Remove(pendingEmail)"
+                                                class="material-symbols-outlined text-sm leading-none">
+                                            close
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-outline-variant/15">
@@ -388,6 +409,7 @@
     List<UserSearchDto> _createSearchResults = [];
     List<UserSearchDto> _teamSearchResults = [];
     List<UserSearchDto> _invitedMembers = [];
+    List<string> _pendingInviteEmails = [];
 
     CancellationTokenSource? _createSearchCts;
     CancellationTokenSource? _teamSearchCts;
@@ -478,7 +500,11 @@
         {
             var results = await Http.GetFromJsonAsync<List<UserSearchDto>>(
                 $"/api/users/search?q={Uri.EscapeDataString(token)}");
-            if (results is null || results.Count == 0) return;
+            if (results is null || results.Count == 0)
+            {
+                AddPendingEmail(token);
+                return;
+            }
 
             var exact = results.FirstOrDefault(r =>
                 string.Equals(r.Email, token, StringComparison.OrdinalIgnoreCase) ||
@@ -528,10 +554,20 @@
 
     void AddMemberToCreateInviteList(UserSearchDto user)
     {
+        _pendingInviteEmails.RemoveAll(e =>
+            string.Equals(e, user.Email, StringComparison.OrdinalIgnoreCase));
         if (!_invitedMembers.Any(m => m.UserId == user.UserId))
             _invitedMembers.Add(user);
         _createMemberSearch = "";
         _createSearchResults = [];
+    }
+
+    void AddPendingEmail(string token)
+    {
+        if (!LooksLikeEmail(token)) return;
+        if (_pendingInviteEmails.Any(e => string.Equals(e, token, StringComparison.OrdinalIgnoreCase)))
+            return;
+        _pendingInviteEmails.Add(token);
     }
 
     async Task AddMemberToSelectedTeam(UserSearchDto user)
@@ -669,6 +705,7 @@
         _createError = null;
         _isPublic = true;
         _invitedMembers = [];
+        _pendingInviteEmails = [];
         _createSearchResults = [];
     }
 
@@ -693,5 +730,12 @@
     {
         if (string.IsNullOrWhiteSpace(name)) return "?";
         return name[..1].ToUpperInvariant();
+    }
+
+    static bool LooksLikeEmail(string value)
+    {
+        var at = value.IndexOf('@');
+        var dot = value.LastIndexOf('.');
+        return at > 0 && dot > at + 1 && dot < value.Length - 1;
     }
 }

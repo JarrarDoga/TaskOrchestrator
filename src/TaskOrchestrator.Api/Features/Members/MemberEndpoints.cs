@@ -13,6 +13,7 @@ public static class MemberEndpoints
         var group = app.MapGroup("/api/boards/{boardId:int}").WithTags("Members").RequireAuthorization();
 
         group.MapGet("/members",                     GetMembers);
+        group.MapPost("/members",                    AddMember);
         group.MapDelete("/members/{targetUserId}",   KickMember);
         group.MapPost("/transfer",                   TransferOwnership);
 
@@ -38,6 +39,22 @@ public static class MemberEndpoints
     {
         if (await Guard.RequireMemberAsync(boardId, user, members) is { } err) return err;
         return Results.Ok(await members.GetMembersAsync(boardId));
+    }
+
+    static async Task<IResult> AddMember(
+        int boardId, [FromBody] AddBoardMemberRequest req,
+        IUserContext user, IBoardMemberRepository members, IUserRepository users)
+    {
+        if (await Guard.RequireOwnerAsync(boardId, user, members) is { } err) return err;
+        if (string.IsNullOrWhiteSpace(req.UserId))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+                { ["UserId"] = ["UserId is required."] });
+
+        if (!await users.ExistsAsync(req.UserId))
+            return Results.NotFound("User not found.");
+
+        await members.AddMemberAsync(boardId, req.UserId, "Member");
+        return Results.NoContent();
     }
 
     static async Task<IResult> KickMember(
