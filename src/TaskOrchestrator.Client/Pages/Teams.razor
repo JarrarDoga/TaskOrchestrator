@@ -172,6 +172,9 @@
                                placeholder="Search by name or email"
                                class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary text-on-surface pl-8 py-3 placeholder:text-outline outline-none" />
                     </div>
+                    <p class="text-[11px] text-on-surface-variant">
+                        Select from suggestions, or paste comma-separated emails to add multiple people.
+                    </p>
 
                     @if (_createSearchResults.Count > 0)
                     {
@@ -431,11 +434,62 @@
 
     async Task OnCreateMemberSearchChanged(ChangeEventArgs e)
     {
-        _createMemberSearch = e.Value?.ToString() ?? "";
+        var raw = e.Value?.ToString() ?? "";
+        if (raw.Contains(','))
+        {
+            await ProcessCreateInviteInput(raw);
+            return;
+        }
+
+        _createMemberSearch = raw;
         _createSearchCts?.Cancel();
         _createSearchCts = new CancellationTokenSource();
         var token = _createSearchCts.Token;
         _createSearchResults = await SearchUsersAsync(_createMemberSearch, token);
+    }
+
+    async Task ProcessCreateInviteInput(string raw)
+    {
+        var endsWithComma = raw.EndsWith(",", StringComparison.Ordinal);
+        var parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+        {
+            _createMemberSearch = "";
+            _createSearchResults = [];
+            return;
+        }
+
+        var tokensToResolve = endsWithComma ? parts : parts[..^1];
+        foreach (var token in tokensToResolve.Distinct(StringComparer.OrdinalIgnoreCase))
+            await TryResolveAndInviteByToken(token);
+
+        _createMemberSearch = endsWithComma ? "" : parts[^1];
+        _createSearchCts?.Cancel();
+        _createSearchCts = new CancellationTokenSource();
+        _createSearchResults = await SearchUsersAsync(_createMemberSearch, _createSearchCts.Token);
+    }
+
+    async Task TryResolveAndInviteByToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token) || token.Length < 2) return;
+
+        try
+        {
+            var results = await Http.GetFromJsonAsync<List<UserSearchDto>>(
+                $"/api/users/search?q={Uri.EscapeDataString(token)}");
+            if (results is null || results.Count == 0) return;
+
+            var exact = results.FirstOrDefault(r =>
+                string.Equals(r.Email, token, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r.DisplayName, token, StringComparison.OrdinalIgnoreCase));
+
+            AddMemberToCreateInviteList(exact ?? results[0]);
+        }
+        catch
+        {
+            // Ignore token parse failures; user can still pick from dropdown manually.
+        }
     }
 
     async Task OnTeamMemberSearchChanged(ChangeEventArgs e)

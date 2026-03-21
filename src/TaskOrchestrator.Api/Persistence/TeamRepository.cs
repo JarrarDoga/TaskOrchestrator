@@ -182,7 +182,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             t.Icon,
             t.IsPublic,
             members.Count,
-            t.BoardCount,
+            (int)Math.Min(int.MaxValue, t.BoardCount),
             t.CreatedAt,
             t.CreatedByUserId,
             members.Select(m => new TeamMemberDto(m.UserId, m.DisplayName, m.AvatarUrl, m.Role, m.JoinedAt)).ToList()
@@ -196,7 +196,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     // Private projection types
     sealed record TeamRow(
         int Id, string Name, string? Description, string Slug, string Icon,
-        bool IsPublic, DateTime CreatedAt, string CreatedByUserId, int BoardCount);
+        bool IsPublic, DateTime CreatedAt, string CreatedByUserId, long BoardCount);
 
     sealed record TeamMemberRow(
         int TeamId, string UserId, string DisplayName, string? AvatarUrl, string Role, DateTime JoinedAt);
