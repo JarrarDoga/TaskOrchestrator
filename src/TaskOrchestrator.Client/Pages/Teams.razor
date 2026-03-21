@@ -291,7 +291,7 @@
                             {
                                 var b = board;
                                 <button class="w-full p-3 rounded-lg bg-surface-container-high border border-outline-variant/20 text-left hover:bg-surface-bright transition-colors"
-                                        @onclick="() => Nav.NavigateTo($"/board/{b.Id}")">
+                                        @onclick='() => Nav.NavigateTo($"/board/{b.Id}")'>
                                     <p class="font-semibold text-on-surface">@b.Name</p>
                                     <p class="text-xs text-on-surface-variant">@b.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</p>
                                 </button>
