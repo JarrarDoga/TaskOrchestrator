@@ -589,7 +589,7 @@
             return;
         }
 
-        var newMember = new TeamMemberDto(user.UserId, user.DisplayName, user.AvatarUrl, "Member", DateTime.UtcNow);
+        var newMember = new TeamMemberDto(user.UserId, user.DisplayName, user.AvatarUrl, "Member", DateTime.UtcNow, user.Email);
         var updatedMembers = _selectedTeam.Members.Append(newMember).ToList();
         _selectedTeam = _selectedTeam with
         {
