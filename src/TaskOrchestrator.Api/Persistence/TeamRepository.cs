@@ -29,9 +29,9 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var teamIds = teams.Select(t => t.Id).ToList();
         var members = (await conn.QueryAsync<TeamMemberRow>(
             """
-            SELECT tm.TeamId, tm.UserId, u.DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
+            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
             FROM TeamMembers tm
-            INNER JOIN Users u ON u.Id = tm.UserId
+            LEFT JOIN Users u ON u.Id = tm.UserId
             WHERE tm.TeamId IN @TeamIds
             ORDER BY tm.JoinedAt
             """,
@@ -62,9 +62,9 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
 
         var members = (await conn.QueryAsync<TeamMemberRow>(
             """
-            SELECT tm.TeamId, tm.UserId, u.DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
+            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
             FROM TeamMembers tm
-            INNER JOIN Users u ON u.Id = tm.UserId
+            LEFT JOIN Users u ON u.Id = tm.UserId
             WHERE tm.TeamId = @TeamId
             ORDER BY tm.JoinedAt
             """,
@@ -76,15 +76,15 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     public async Task<IEnumerable<TeamBoardDto>> GetBoardsAsync(int teamId, string userId)
     {
         using var conn = db.CreateConnection();
+        // Team membership is verified before this is called — show all boards in the team
         return await conn.QueryAsync<TeamBoardDto>(
             """
             SELECT b.Id, b.Name, b.Description, b.CreatedAt, b.Version
             FROM Boards b
-            INNER JOIN BoardMembers bm ON bm.BoardId = b.Id AND bm.UserId = @UserId
             WHERE b.TeamId = @TeamId
             ORDER BY b.CreatedAt DESC
             """,
-            new { TeamId = teamId, UserId = userId });
+            new { TeamId = teamId });
     }
 
     public async Task<TeamDto> CreateAsync(CreateTeamRequest request, string ownerUserId)
@@ -158,6 +158,16 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         using var conn = db.CreateConnection();
         await conn.ExecuteAsync(
             "INSERT IGNORE INTO TeamMembers (TeamId, UserId, Role) VALUES (@TeamId, @UserId, 'Member')",
+            new { TeamId = teamId, UserId = userId });
+
+        // Enroll in all existing boards for this team so they appear on the user's Boards page
+        await conn.ExecuteAsync(
+            """
+            INSERT IGNORE INTO BoardMembers (BoardId, UserId, Role)
+            SELECT b.Id, @UserId, 'Member'
+            FROM Boards b
+            WHERE b.TeamId = @TeamId
+            """,
             new { TeamId = teamId, UserId = userId });
     }
 
