@@ -7,4 +7,5 @@ public interface IUserRepository
     Task UpsertAsync(string id, string? displayName, string? email, string? avatarUrl);
     Task<IEnumerable<UserSearchDto>> SearchAsync(string query, int limit = 10);
     Task<bool> ExistsAsync(string userId);
+    Task<string?> GetEmailAsync(string userId);
 }

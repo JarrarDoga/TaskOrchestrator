@@ -163,15 +163,19 @@ public static class TeamEndpoints
         string token,
         IUserContext user,
         ITeamInviteRepository invites,
-        ITeamRepository teams)
+        ITeamRepository teams,
+        IUserRepository users)
     {
         var invite = await invites.GetByTokenAsync(token);
         if (invite is null)                          return Results.NotFound("Invite not found.");
         if (invite.AcceptedAt.HasValue)              return Results.Conflict("This invite has already been used.");
         if (invite.ExpiresAt < DateTime.UtcNow)      return Results.Problem(title: "Expired", detail: "This invite has expired.", statusCode: 410);
 
-        // Email-lock: only the intended recipient can accept
-        var userEmail = user.Email;
+        // Email-lock: look up email from DB (JWT access tokens don't always carry the email claim,
+        // e.g. Google OAuth via Auth0 omits it from the access token)
+        var userEmail = await users.GetEmailAsync(user.UserId)
+                        ?? user.Email; // fall back to JWT claim if DB row not yet created
+
         if (string.IsNullOrWhiteSpace(userEmail) ||
             !string.Equals(userEmail.Trim(), invite.InviteeEmail, StringComparison.OrdinalIgnoreCase))
         {

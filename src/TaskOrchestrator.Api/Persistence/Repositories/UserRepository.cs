@@ -44,4 +44,12 @@ public sealed class UserRepository(IDbConnectionFactory db) : IUserRepository
             new { UserId = userId });
         return count > 0;
     }
+
+    public async Task<string?> GetEmailAsync(string userId)
+    {
+        using var conn = db.CreateConnection();
+        return await conn.ExecuteScalarAsync<string?>(
+            "SELECT Email FROM Users WHERE Id = @UserId",
+            new { UserId = userId });
+    }
 }
