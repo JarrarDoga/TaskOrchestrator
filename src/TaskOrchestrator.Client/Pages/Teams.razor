@@ -338,6 +338,28 @@
                             }
                         </div>
                     }
+                    else if (_teamSearchResults.Count == 0 && LooksLikeEmail(_teamMemberSearch))
+                    {
+                        @* No matching account found — offer email invite inline *@
+                        <div class="flex items-center justify-between px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/30">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="material-symbols-outlined text-outline text-base">mail</span>
+                                <p class="text-sm text-on-surface-variant truncate">
+                                    No account found — send invite to <span class="font-medium text-on-surface">@_teamMemberSearch</span>
+                                </p>
+                            </div>
+                            <button @onclick="SendInvite" disabled="@_inviting"
+                                    class="ml-3 bg-primary text-on-primary px-3 py-1.5 rounded-lg text-xs font-bold
+                                           hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap">
+                                @(_inviting ? "Sending…" : "Send Invite")
+                            </button>
+                        </div>
+                    }
+
+                    @if (_inviteMessage is not null)
+                    {
+                        <p class="text-xs @(_inviteSuccess ? "text-green-400" : "text-error")">@_inviteMessage</p>
+                    }
 
                     <div class="space-y-2">
                         @foreach (var member in _selectedTeam.Members)
@@ -361,26 +383,6 @@
                                     </button>
                                 }
                             </div>
-                        }
-                    </div>
-
-                    @* Email invite for people not yet on the platform *@
-                    <div class="pt-2 space-y-2 border-t border-outline-variant/20">
-                        <p class="text-[11px] text-on-surface-variant">Invite someone not on the platform yet:</p>
-                        <div class="flex items-center gap-2">
-                            <input @bind="_inviteEmail" @bind:event="oninput"
-                                   placeholder="email@example.com"
-                                   class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary
-                                          text-on-surface py-2 placeholder:text-outline text-sm outline-none" />
-                            <button @onclick="SendInvite" disabled="@_inviting"
-                                    class="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold
-                                           hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap">
-                                @(_inviting ? "Sending..." : "Send Invite")
-                            </button>
-                        </div>
-                        @if (_inviteMessage is not null)
-                        {
-                            <p class="text-xs @(_inviteSuccess ? "text-green-400" : "text-error")">@_inviteMessage</p>
                         }
                     </div>
                 </div>
@@ -414,7 +416,6 @@
     List<UserSearchDto> _invitedMembers = [];
     List<string> _pendingInviteEmails = [];
 
-    string _inviteEmail = "";
     string? _inviteMessage;
 
     CancellationTokenSource? _createSearchCts;
@@ -716,26 +717,21 @@
     async Task SendInvite()
     {
         _inviteMessage = null;
-
-        if (!LooksLikeEmail(_inviteEmail))
-        {
-            _inviteMessage = "Please enter a valid email address.";
-            _inviteSuccess = false;
-            return;
-        }
+        var email = _teamMemberSearch.Trim();
 
         _inviting = true;
         try
         {
             var resp = await Http.PostAsJsonAsync(
                 $"/api/teams/{_selectedTeam!.Id}/invite-email",
-                new { Email = _inviteEmail.Trim() });
+                new { Email = email });
 
             if (resp.IsSuccessStatusCode)
             {
-                _inviteMessage = $"Invite sent to {_inviteEmail.Trim()}!";
+                _inviteMessage = $"Invite sent to {email}!";
                 _inviteSuccess = true;
-                _inviteEmail = "";
+                _teamMemberSearch = "";
+                _teamSearchResults = [];
             }
             else
             {
@@ -763,7 +759,6 @@
         _teamSearchResults = [];
         _newTeamBoardName = "";
         _teamActionError = null;
-        _inviteEmail = "";
         _inviteMessage = null;
     }
 

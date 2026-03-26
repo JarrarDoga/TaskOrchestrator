@@ -65,6 +65,7 @@ builder.Services.AddScoped<IBoardMemberRepository, BoardMemberRepository>();
 builder.Services.AddScoped<IInviteRepository,      InviteRepository>();
 builder.Services.AddScoped<IColumnRepository,      ColumnRepository>();
 builder.Services.AddScoped<ITeamRepository,        TeamRepository>();
+builder.Services.AddScoped<ITeamInviteRepository,  TeamInviteRepository>();
 
 // --- User context (reads JWT claims) ---
 builder.Services.AddScoped<IUserContext, UserContext>();

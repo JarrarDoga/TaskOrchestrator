@@ -47,3 +47,10 @@ public record TeamCreateBoardRequest(
     string Name,
     string? Description
 );
+
+public record TeamInviteInfoDto(
+    string TeamName,
+    string InviteeEmail,   // full email — frontend shows it so the user knows which account to sign in with
+    bool IsExpired,
+    bool IsUsed
+);

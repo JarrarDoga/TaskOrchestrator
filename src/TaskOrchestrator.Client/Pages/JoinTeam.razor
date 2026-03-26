@@ -1,0 +1,132 @@
+@page "/join-team/{Token}"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+@using TaskOrchestrator.Shared.Contracts
+
+<PageTitle>Join Team — Task Orchestrator</PageTitle>
+
+<div class="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
+
+    @if (_loading)
+    {
+        <div class="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+        <p class="text-on-surface-variant text-sm">Checking your invite…</p>
+    }
+    else if (_error is not null)
+    {
+        <span class="material-symbols-outlined text-error text-5xl">error</span>
+        <h2 class="text-xl font-headline font-bold text-on-surface">Invite unavailable</h2>
+        <p class="text-on-surface-variant text-sm max-w-sm">@_error</p>
+        <a href="/teams"
+           class="mt-2 text-primary font-bold text-sm hover:underline">
+            Go to Teams
+        </a>
+    }
+    else if (_info is not null)
+    {
+        <div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <span class="material-symbols-outlined text-4xl">group</span>
+        </div>
+        <h2 class="text-2xl font-headline font-bold text-on-surface">You're invited!</h2>
+        <p class="text-on-surface-variant text-sm max-w-sm">
+            You've been invited to join <strong>@_info.TeamName</strong>.
+        </p>
+
+        @if (_joined)
+        {
+            <p class="text-green-400 text-sm font-semibold">You're in! Redirecting…</p>
+        }
+        else
+        {
+            <button @onclick="AcceptInvite" disabled="@_accepting"
+                    class="btn-gradient text-white px-8 py-3 rounded-xl font-headline font-bold
+                           hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20
+                           disabled:opacity-50">
+                @(_accepting ? "Joining…" : $"Join {_info.TeamName}")
+            </button>
+        }
+    }
+
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = default!;
+
+    TeamInviteInfoDto? _info;
+    string? _error;
+    bool _loading = true;
+    bool _accepting;
+    bool _joined;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _info = await Http.GetFromJsonAsync<TeamInviteInfoDto>($"/api/teams/invites/{Token}");
+
+            if (_info is null)
+            {
+                _error = "This invite link is invalid.";
+            }
+            else if (_info.IsUsed)
+            {
+                _error = "This invite has already been used.";
+                _info = null;
+            }
+            else if (_info.IsExpired)
+            {
+                _error = "This invite has expired. Ask the team owner to send a new one.";
+                _info = null;
+            }
+        }
+        catch
+        {
+            _error = "This invite link is invalid or has expired.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    async Task AcceptInvite()
+    {
+        _accepting = true;
+        _error = null;
+        try
+        {
+            var resp = await Http.PostAsync($"/api/teams/invites/{Token}/accept", null);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                _joined = true;
+                await Task.Delay(1200);
+                Nav.NavigateTo("/teams", replace: true);
+            }
+            else if ((int)resp.StatusCode == 403)
+            {
+                _error = $"This invite was sent to {_info!.InviteeEmail}. Please sign in with that account.";
+                _info = null;
+            }
+            else if ((int)resp.StatusCode == 409)
+            {
+                // Already accepted — just navigate
+                Nav.NavigateTo("/teams", replace: true);
+            }
+            else
+            {
+                _error = "Something went wrong. Please try again.";
+            }
+        }
+        catch
+        {
+            _error = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            _accepting = false;
+        }
+    }
+}

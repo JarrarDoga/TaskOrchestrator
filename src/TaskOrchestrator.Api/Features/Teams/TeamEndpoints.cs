@@ -21,7 +21,11 @@ public static class TeamEndpoints
         group.MapDelete("/{id:int}/members/{userId}", RemoveMember);
         group.MapPost("/{id:int}/invite-email",        InviteByEmail);
 
-        // User search (used by the invite input in the modal)
+        // Invite acceptance (token is public-readable but accept requires auth + email match)
+        app.MapGet("/api/teams/invites/{token}",        GetInviteInfo).AllowAnonymous();
+        app.MapPost("/api/teams/invites/{token}/accept", AcceptInvite).RequireAuthorization();
+
+        // User search
         app.MapGet("/api/users/search", SearchUsers).RequireAuthorization();
 
         return app;
@@ -39,8 +43,7 @@ public static class TeamEndpoints
         return Results.Ok(team);
     }
 
-    static async Task<IResult> GetBoards(
-        int id, IUserContext user, ITeamRepository teams)
+    static async Task<IResult> GetBoards(int id, IUserContext user, ITeamRepository teams)
     {
         if (!user.IsAuthenticated) return Results.Unauthorized();
         if (!await teams.IsMemberAsync(id, user.UserId)) return Results.Forbid();
@@ -109,7 +112,10 @@ public static class TeamEndpoints
     static async Task<IResult> InviteByEmail(
         int id,
         [FromBody] InviteByEmailRequest req,
-        IUserContext user, ITeamRepository teams, IEmailService email,
+        IUserContext user,
+        ITeamRepository teams,
+        ITeamInviteRepository invites,
+        IEmailService email,
         IConfiguration config)
     {
         if (!user.IsAuthenticated) return Results.Unauthorized();
@@ -121,10 +127,12 @@ public static class TeamEndpoints
             return Results.BadRequest("A valid email address is required.");
 
         var clientBaseUrl = config["InviteEmail:ClientBaseUrl"] ?? "https://task-orchestrator-phi.vercel.app";
+        var expiresAt     = DateTime.UtcNow.AddDays(7);
+        var token         = await invites.CreateAsync(id, req.Email.Trim().ToLowerInvariant(), user.UserId, expiresAt);
 
         try
         {
-            await email.SendTeamInviteAsync(req.Email.Trim(), team.Name, clientBaseUrl);
+            await email.SendTeamInviteAsync(req.Email.Trim(), team.Name, token, clientBaseUrl);
             return Results.Ok();
         }
         catch (Exception ex)
@@ -133,8 +141,56 @@ public static class TeamEndpoints
         }
     }
 
-    static async Task<IResult> SearchUsers(
-        [FromQuery] string q, IUserRepository users)
+    // Public peek — lets the JoinTeam page show team name / status before the user decides to sign in
+    static async Task<IResult> GetInviteInfo(string token, ITeamInviteRepository invites, ITeamRepository teams)
+    {
+        var invite = await invites.GetByTokenAsync(token);
+        if (invite is null) return Results.NotFound();
+
+        var team = await teams.GetByIdAsync(invite.TeamId);
+        var teamName = team?.Name ?? "Unknown Team";
+
+        return Results.Ok(new TeamInviteInfoDto(
+            teamName,
+            invite.InviteeEmail,
+            IsExpired: invite.ExpiresAt < DateTime.UtcNow,
+            IsUsed:    invite.AcceptedAt.HasValue
+        ));
+    }
+
+    // Requires auth — verifies the signed-in user's email matches the invite, then adds them
+    static async Task<IResult> AcceptInvite(
+        string token,
+        IUserContext user,
+        ITeamInviteRepository invites,
+        ITeamRepository teams)
+    {
+        var invite = await invites.GetByTokenAsync(token);
+        if (invite is null)                          return Results.NotFound("Invite not found.");
+        if (invite.AcceptedAt.HasValue)              return Results.Conflict("This invite has already been used.");
+        if (invite.ExpiresAt < DateTime.UtcNow)      return Results.Problem(title: "Expired", detail: "This invite has expired.", statusCode: 410);
+
+        // Email-lock: only the intended recipient can accept
+        var userEmail = user.Email;
+        if (string.IsNullOrWhiteSpace(userEmail) ||
+            !string.Equals(userEmail.Trim(), invite.InviteeEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Problem(
+                title:      "Wrong account",
+                detail:     $"This invite was sent to {invite.InviteeEmail}. Please sign in with that account.",
+                statusCode: 403);
+        }
+
+        // Idempotent: already a member is fine
+        if (!await teams.IsMemberAsync(invite.TeamId, user.UserId))
+            await teams.AddMemberAsync(invite.TeamId, user.UserId);
+
+        await invites.AcceptAsync(token);
+
+        return Results.Ok(new { teamId = invite.TeamId });
+    }
+
+    static async Task<IResult> SearchUsers([FromQuery] string q, IUserRepository users)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
             return Results.Ok(Array.Empty<UserSearchDto>());
