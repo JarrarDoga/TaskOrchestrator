@@ -4,6 +4,8 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 @using TaskOrchestrator.Client.Components
+@using TaskOrchestrator.Shared.Contracts
+@using System.Net.Http.Json
 
 <PageTitle>Orchestrator — Active Boards</PageTitle>
 
@@ -164,9 +166,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Http.PostAsync("/api/me/sync", null);
         var authState = await AuthState.GetAuthenticationStateAsync();
-        _manageCurrentUserId = authState.User.FindFirst("sub")?.Value;
+        var principal = authState.User;
+        _manageCurrentUserId = principal.FindFirst("sub")?.Value;
+        await Http.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(
+            principal.FindFirst("name")?.Value ?? principal.FindFirst("nickname")?.Value,
+            principal.FindFirst("email")?.Value,
+            principal.FindFirst("picture")?.Value));
         var boardsTask = Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
         var teamsTask = Http.GetFromJsonAsync<List<TeamDto>>("/api/teams");
 

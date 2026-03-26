@@ -1,5 +1,6 @@
 using TaskOrchestrator.Api.Persistence.Repositories;
 using TaskOrchestrator.Api.Services;
+using TaskOrchestrator.Shared.Contracts;
 
 namespace TaskOrchestrator.Api.Features.Me;
 
@@ -18,10 +19,16 @@ public static class MeEndpoints
         return app;
     }
 
-    static async Task<IResult> Sync(IUserContext user, IUserRepository users)
+    static async Task<IResult> Sync(IUserContext user, IUserRepository users, SyncProfileRequest? body)
     {
-        await users.UpsertAsync(user.UserId, user.DisplayName, user.Email, user.AvatarUrl);
-        return Results.Ok(new { user.UserId, user.DisplayName, user.Email });
+        // Access tokens with a custom audience don't include profile claims (email, name, picture).
+        // The client reads those from the OIDC ID token and sends them in the request body as a fallback.
+        var displayName = user.DisplayName ?? body?.DisplayName;
+        var email       = user.Email       ?? body?.Email;
+        var avatarUrl   = user.AvatarUrl   ?? body?.AvatarUrl;
+
+        await users.UpsertAsync(user.UserId, displayName, email, avatarUrl);
+        return Results.Ok(new { user.UserId, displayName, email });
     }
 
     static async Task<IResult> GetMyBoards(IUserContext user, IBoardRepository boards)

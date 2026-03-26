@@ -212,7 +212,9 @@
         _state.OnChange   += StateHasChanged;
         _signalR.OnStateChanged += StateHasChanged;
 
-        // Sync Auth0 profile into the Users table on first load
+        // Sync Auth0 profile into the Users table on first load.
+        // ID token claims (email, name, picture) are available here in Blazor but may be absent
+        // from the access token when a custom audience is used, so we send them in the body.
         var authState = await AuthState.GetAuthenticationStateAsync();
         var principal = authState.User;
         var userId      = principal.FindFirst("sub")?.Value ?? "";
@@ -220,8 +222,9 @@
                        ?? principal.FindFirst("nickname")?.Value
                        ?? "Unknown";
         var avatarUrl = principal.FindFirst("picture")?.Value;
+        var email     = principal.FindFirst("email")?.Value;
 
-        await HttpClient.PostAsync("/api/me/sync", null);
+        await HttpClient.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(displayName, email, avatarUrl));
 
         await _state.LoadBoardAsync(BoardId);
 

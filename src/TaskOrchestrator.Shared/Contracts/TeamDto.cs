@@ -49,6 +49,12 @@ public record TeamCreateBoardRequest(
     string? Description
 );
 
+public record SyncProfileRequest(
+    string? DisplayName,
+    string? Email,
+    string? AvatarUrl
+);
+
 public record TeamInviteInfoDto(
     string TeamName,
     string InviteeEmail,   // full email — frontend shows it so the user knows which account to sign in with
