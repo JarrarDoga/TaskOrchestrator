@@ -75,6 +75,10 @@ builder.Services.AddScoped<IBoardNotifier, BoardNotifier>();
 // --- File storage ---
 builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
+// --- Email ---
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IEmailService, ResendEmailService>();
+
 // --- CORS ---
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173"];

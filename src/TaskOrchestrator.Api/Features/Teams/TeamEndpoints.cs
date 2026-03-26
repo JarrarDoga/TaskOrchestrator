@@ -17,6 +17,7 @@ public static class TeamEndpoints
         group.MapDelete("/{id:int}",                  Delete);
         group.MapPost("/{id:int}/members",             AddMember);
         group.MapDelete("/{id:int}/members/{userId}", RemoveMember);
+        group.MapPost("/{id:int}/invite-email",        InviteByEmail);
 
         // User search (used by the invite input in the modal)
         app.MapGet("/api/users/search", SearchUsers).RequireAuthorization();
@@ -72,6 +73,33 @@ public static class TeamEndpoints
         return Results.NoContent();
     }
 
+    static async Task<IResult> InviteByEmail(
+        int id,
+        [FromBody] InviteByEmailRequest req,
+        IUserContext user, ITeamRepository teams, IEmailService email,
+        IConfiguration config)
+    {
+        if (!user.IsAuthenticated) return Results.Unauthorized();
+
+        var team = await teams.GetByIdAsync(id);
+        if (team is null) return Results.NotFound();
+
+        if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
+            return Results.BadRequest("A valid email address is required.");
+
+        var clientBaseUrl = config["InviteEmail:ClientBaseUrl"] ?? "https://task-orchestrator-phi.vercel.app";
+
+        try
+        {
+            await email.SendTeamInviteAsync(req.Email.Trim(), team.Name, clientBaseUrl);
+            return Results.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem($"Failed to send invite email: {ex.Message}");
+        }
+    }
+
     static async Task<IResult> SearchUsers(
         [FromQuery] string q, IUserRepository users)
     {
@@ -83,3 +111,4 @@ public static class TeamEndpoints
 }
 
 public record AddTeamMemberRequest(string UserId);
+public record InviteByEmailRequest(string Email);

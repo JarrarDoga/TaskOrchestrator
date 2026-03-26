@@ -39,9 +39,10 @@
                 @foreach (var team in _teams)
                 {
                     var t = team; // capture for closures
-                    <div class="group relative bg-surface-container-low rounded-xl p-6 transition-all duration-300
+                    <div @onclick="() => OpenTeamDetail(t)"
+                         class="group relative bg-surface-container-low rounded-xl p-6 transition-all duration-300
                                 hover:bg-surface-bright border-l-4 border-transparent hover:border-primary
-                                shadow-2xl shadow-black/20">
+                                shadow-2xl shadow-black/20 cursor-pointer">
 
                         @* Card header *@
                         <div class="flex justify-between items-start mb-6">
@@ -54,7 +55,7 @@
                                     <p class="text-xs text-on-surface-variant font-medium">@t.Slug</p>
                                 </div>
                             </div>
-                            <button @onclick="() => DeleteTeam(t)"
+                            <button @onclick="() => DeleteTeam(t)" @onclick:stopPropagation
                                     class="material-symbols-outlined text-on-surface-variant group-hover:text-error
                                            hover:text-error transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
                                     title="Delete team">
@@ -63,14 +64,10 @@
                         </div>
 
                         @* Stats *@
-                        <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="grid grid-cols-1 gap-4 mb-6">
                             <div class="bg-surface-container-highest/40 rounded-lg p-3">
                                 <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Members</span>
                                 <span class="text-xl font-bold font-headline text-on-surface">@t.MemberCount</span>
-                            </div>
-                            <div class="bg-surface-container-highest/40 rounded-lg p-3">
-                                <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Visibility</span>
-                                <span class="text-xl font-bold font-headline text-on-surface">@(t.IsPublic ? "Public" : "Private")</span>
                             </div>
                         </div>
 
@@ -143,10 +140,6 @@
                             <span class="text-outline text-xs block">Total Members</span>
                             <span class="text-2xl font-headline font-bold text-on-surface">@_teams.Sum(t => t.MemberCount)</span>
                         </div>
-                        <div class="space-y-1">
-                            <span class="text-outline text-xs block">Public Teams</span>
-                            <span class="text-2xl font-headline font-bold text-on-surface">@_teams.Count(t => t.IsPublic)</span>
-                        </div>
                     </div>
                 </div>
                 <div class="hidden lg:flex items-end gap-1 h-24 opacity-50">
@@ -170,6 +163,89 @@
     </div>
 
 </div>
+
+@* Team Detail Modal *@
+@if (_selectedTeam is not null)
+{
+    var st = _selectedTeam;
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+         @onclick="CloseTeamDetail">
+        <div class="glass-panel w-full max-w-2xl rounded-xl shadow-[0_24px_40px_-4px_rgba(0,0,0,0.4)] overflow-hidden"
+             @onclick:stopPropagation>
+
+            @* Header *@
+            <div class="px-8 pt-8 pb-4 flex justify-between items-start border-b border-outline-variant/20">
+                <div>
+                    <h2 class="text-2xl font-bold font-headline text-on-surface tracking-tight">@st.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(st.Description))
+                    {
+                        <p class="text-on-surface-variant text-sm mt-1">@st.Description</p>
+                    }
+                </div>
+                <button @onclick="CloseTeamDetail" class="text-on-surface-variant hover:text-on-surface transition-colors p-1">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+            </div>
+
+            @* Body *@
+            <div class="px-8 py-6 flex gap-8">
+
+                @* Members list *@
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Members</h3>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">
+                            @st.Members.Count @(st.Members.Count == 1 ? "MEMBER" : "MEMBERS")
+                        </span>
+                    </div>
+
+                    @* Current members *@
+                    <div class="space-y-2 mb-6 max-h-48 overflow-y-auto">
+                        @foreach (var member in st.Members)
+                        {
+                            <div class="flex items-center gap-3">
+                                @if (!string.IsNullOrEmpty(member.AvatarUrl))
+                                {
+                                    <img class="w-8 h-8 rounded-full object-cover" src="@member.AvatarUrl" alt="@member.DisplayName" />
+                                }
+                                else
+                                {
+                                    <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-xs font-bold text-on-primary-container">
+                                        @member.DisplayName[..1].ToUpper()
+                                    </div>
+                                }
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-on-surface truncate">@member.DisplayName</p>
+                                    <p class="text-xs text-on-surface-variant">@member.Role</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @* Invite by email *@
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-outline text-lg">person_add</span>
+                            <input @bind="_inviteEmail" @bind:event="oninput"
+                                   placeholder="Add member by email"
+                                   class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary
+                                          focus:ring-0 transition-all text-on-surface py-2 placeholder:text-outline text-sm outline-none" />
+                            <button @onclick="SendInvite" disabled="@_inviting"
+                                    class="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold
+                                           hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap">
+                                @(_inviting ? "Sending..." : "Send Invite")
+                            </button>
+                        </div>
+                        @if (_inviteMessage is not null)
+                        {
+                            <p class="text-xs @(_inviteSuccess ? "text-green-400" : "text-error") pl-6">@_inviteMessage</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @* Create Team Modal *@
 @if (_showCreate)
@@ -284,21 +360,6 @@
                     }
                 </div>
 
-                @* Privacy toggle *@
-                <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-outline-variant/15">
-                    <div class="flex gap-4">
-                        <span class="material-symbols-outlined text-on-surface-variant">@(_isPublic ? "public" : "lock")</span>
-                        <div>
-                            <p class="text-sm font-semibold text-on-surface">Privacy Settings</p>
-                            <p class="text-xs text-on-surface-variant">@(_isPublic ? "Public — visible to everyone in Orchestrator" : "Private — invite-only")</p>
-                        </div>
-                    </div>
-                    <button @onclick="() => _isPublic = !_isPublic"
-                            class="@(_isPublic ? "bg-primary" : "bg-outline-variant") relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors">
-                        <span class="@(_isPublic ? "translate-x-5" : "translate-x-0") pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-                    </button>
-                </div>
-
                 @* Actions *@
                 <div class="flex items-center justify-end gap-6 pt-4">
                     <button @onclick="CloseModal"
@@ -321,7 +382,6 @@
     bool _loading = true;
     bool _showCreate;
     bool _creating;
-    bool _isPublic = true;
 
     string _newName = "";
     string _newDescription = "";
@@ -331,6 +391,13 @@
     List<TeamDto> _teams = [];
     List<UserSearchDto> _searchResults = [];
     List<UserSearchDto> _invitedMembers = [];
+
+    // Team detail modal
+    TeamDto? _selectedTeam;
+    string _inviteEmail = "";
+    string? _inviteMessage;
+    bool _inviteSuccess;
+    bool _inviting;
 
     private System.Threading.CancellationTokenSource? _searchCts;
 
@@ -409,7 +476,6 @@
                 _newName.Trim(),
                 string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription.Trim(),
                 null,
-                _isPublic,
                 _invitedMembers.Select(m => m.UserId).ToList()
             );
 
@@ -434,6 +500,62 @@
         }
     }
 
+    void OpenTeamDetail(TeamDto team)
+    {
+        _selectedTeam = team;
+        _inviteEmail = "";
+        _inviteMessage = null;
+    }
+
+    void CloseTeamDetail()
+    {
+        _selectedTeam = null;
+        _inviteEmail = "";
+        _inviteMessage = null;
+        _inviting = false;
+    }
+
+    async Task SendInvite()
+    {
+        _inviteMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteEmail.Contains('@'))
+        {
+            _inviteMessage = "Please enter a valid email address.";
+            _inviteSuccess = false;
+            return;
+        }
+
+        _inviting = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync(
+                $"/api/teams/{_selectedTeam!.Id}/invite-email",
+                new { Email = _inviteEmail.Trim() });
+
+            if (response.IsSuccessStatusCode)
+            {
+                _inviteMessage = $"Invite sent to {_inviteEmail.Trim()}!";
+                _inviteSuccess = true;
+                _inviteEmail = "";
+            }
+            else
+            {
+                _inviteMessage = "Failed to send invite. Please try again.";
+                _inviteSuccess = false;
+            }
+        }
+        catch
+        {
+            _inviteMessage = "An error occurred. Please try again.";
+            _inviteSuccess = false;
+        }
+        finally
+        {
+            _inviting = false;
+        }
+    }
+
     async Task DeleteTeam(TeamDto team)
     {
         var response = await Http.DeleteAsync($"/api/teams/{team.Id}");
@@ -450,7 +572,6 @@
         _newDescription = "";
         _memberSearch = "";
         _createError = null;
-        _isPublic = true;
         _invitedMembers = [];
         _searchResults = [];
     }

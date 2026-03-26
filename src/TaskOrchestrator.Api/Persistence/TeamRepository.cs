@@ -10,14 +10,12 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     {
         using var conn = db.CreateConnection();
 
-        // Return teams the user belongs to, plus all public teams
+        // Return only teams the user is a member of
         var teams = (await conn.QueryAsync<TeamRow>(
             """
-            SELECT DISTINCT t.Id, t.Name, t.Description, t.Slug, t.Icon, t.IsPublic,
-                   t.CreatedAt, t.CreatedByUserId
+            SELECT t.Id, t.Name, t.Description, t.Slug, t.Icon, t.CreatedAt, t.CreatedByUserId
             FROM Teams t
-            LEFT JOIN TeamMembers tm ON tm.TeamId = t.Id AND tm.UserId = @UserId
-            WHERE t.IsPublic = 1 OR tm.UserId IS NOT NULL
+            INNER JOIN TeamMembers tm ON tm.TeamId = t.Id AND tm.UserId = @UserId
             ORDER BY t.CreatedAt DESC
             """,
             new { UserId = userId })).ToList();
@@ -45,7 +43,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         using var conn = db.CreateConnection();
 
         var team = await conn.QuerySingleOrDefaultAsync<TeamRow>(
-            "SELECT Id, Name, Description, Slug, Icon, IsPublic, CreatedAt, CreatedByUserId FROM Teams WHERE Id = @Id",
+            "SELECT Id, Name, Description, Slug, Icon, CreatedAt, CreatedByUserId FROM Teams WHERE Id = @Id",
             new { Id = teamId });
 
         if (team is null) return null;
@@ -73,7 +71,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Teams (Name, Description, Slug, Icon, IsPublic, CreatedByUserId)
-            VALUES (@Name, @Description, @Slug, @Icon, @IsPublic, @CreatedByUserId);
+            VALUES (@Name, @Description, @Slug, @Icon, 0, @CreatedByUserId);
             SELECT LAST_INSERT_ID();
             """,
             new
@@ -82,7 +80,6 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
                 Description = request.Description,
                 Slug = slug,
                 Icon = icon,
-                IsPublic = request.IsPublic ? 1 : 0,
                 CreatedByUserId = ownerUserId,
             });
 
@@ -146,7 +143,6 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             t.Description,
             t.Slug,
             t.Icon,
-            t.IsPublic,
             members.Count,
             t.CreatedAt,
             t.CreatedByUserId,
@@ -161,7 +157,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     // Private projection types
     sealed record TeamRow(
         int Id, string Name, string? Description, string Slug, string Icon,
-        bool IsPublic, DateTime CreatedAt, string CreatedByUserId);
+        DateTime CreatedAt, string CreatedByUserId);
 
     sealed record TeamMemberRow(
         int TeamId, string UserId, string DisplayName, string? AvatarUrl, string Role, DateTime JoinedAt);

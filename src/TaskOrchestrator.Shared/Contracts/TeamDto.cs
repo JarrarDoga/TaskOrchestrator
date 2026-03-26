@@ -14,7 +14,6 @@ public record TeamDto(
     string? Description,
     string Slug,
     string Icon,
-    bool IsPublic,
     int MemberCount,
     DateTime CreatedAt,
     string CreatedByUserId,
@@ -25,7 +24,6 @@ public record CreateTeamRequest(
     string Name,
     string? Description,
     string? Icon,
-    bool IsPublic,
     IReadOnlyList<string>? MemberUserIds
 );
 
