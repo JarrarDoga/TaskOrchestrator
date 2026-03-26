@@ -222,7 +222,8 @@
                        ?? principal.FindFirst("nickname")?.Value
                        ?? "Unknown";
         var avatarUrl = principal.FindFirst("picture")?.Value;
-        var email     = principal.FindFirst("email")?.Value;
+        var email     = principal.FindFirst("email")?.Value
+                     ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
 
         await HttpClient.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(displayName, email, avatarUrl));
 

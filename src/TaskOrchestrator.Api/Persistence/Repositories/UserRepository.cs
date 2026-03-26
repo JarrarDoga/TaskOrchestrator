@@ -13,9 +13,9 @@ public sealed class UserRepository(IDbConnectionFactory db) : IUserRepository
             INSERT INTO Users (Id, DisplayName, Email, AvatarUrl, LastSeenAt)
             VALUES (@Id, @DisplayName, @Email, @AvatarUrl, UTC_TIMESTAMP(3))
             ON DUPLICATE KEY UPDATE
-                DisplayName = VALUES(DisplayName),
-                Email       = VALUES(Email),
-                AvatarUrl   = VALUES(AvatarUrl),
+                DisplayName = COALESCE(VALUES(DisplayName), DisplayName),
+                Email       = COALESCE(VALUES(Email), Email),
+                AvatarUrl   = COALESCE(VALUES(AvatarUrl), AvatarUrl),
                 LastSeenAt  = UTC_TIMESTAMP(3)
             """,
             new { Id = id, DisplayName = displayName ?? id, email, avatarUrl });
