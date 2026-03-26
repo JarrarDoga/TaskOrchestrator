@@ -29,7 +29,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var teamIds = teams.Select(t => t.Id).ToList();
         var members = (await conn.QueryAsync<TeamMemberRow>(
             """
-            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
+            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt, u.Email
             FROM TeamMembers tm
             LEFT JOIN Users u ON u.Id = tm.UserId
             WHERE tm.TeamId IN @TeamIds
@@ -62,7 +62,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
 
         var members = (await conn.QueryAsync<TeamMemberRow>(
             """
-            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt
+            SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt, u.Email
             FROM TeamMembers tm
             LEFT JOIN Users u ON u.Id = tm.UserId
             WHERE tm.TeamId = @TeamId
@@ -192,7 +192,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             (int)Math.Min(int.MaxValue, t.BoardCount),
             t.CreatedAt,
             t.CreatedByUserId,
-            members.Select(m => new TeamMemberDto(m.UserId, m.DisplayName, m.AvatarUrl, m.Role, m.JoinedAt)).ToList()
+            members.Select(m => new TeamMemberDto(m.UserId, m.DisplayName, m.AvatarUrl, m.Role, m.JoinedAt, m.Email)).ToList()
         );
 
     static string GenerateSlug(string name) =>
@@ -206,5 +206,5 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         DateTime CreatedAt, string CreatedByUserId, long BoardCount);
 
     sealed record TeamMemberRow(
-        int TeamId, string UserId, string DisplayName, string? AvatarUrl, string Role, DateTime JoinedAt);
+        int TeamId, string UserId, string DisplayName, string? AvatarUrl, string Role, DateTime JoinedAt, string? Email);
 }

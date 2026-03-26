@@ -5,7 +5,8 @@ public record TeamMemberDto(
     string DisplayName,
     string? AvatarUrl,
     string Role,
-    DateTime JoinedAt
+    DateTime JoinedAt,
+    string? Email
 );
 
 public record TeamDto(

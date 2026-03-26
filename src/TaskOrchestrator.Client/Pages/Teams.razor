@@ -368,10 +368,10 @@
                             <div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-high border border-outline-variant/20">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-xs font-bold text-on-primary-container">
-                                        @GetInitial(m.DisplayName)
+                                        @GetInitial(string.IsNullOrEmpty(m.Email) ? m.DisplayName : m.Email)
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-on-surface truncate">@m.DisplayName</p>
+                                        <p class="text-sm font-semibold text-on-surface truncate">@(string.IsNullOrEmpty(m.Email) ? m.DisplayName : m.Email)</p>
                                         <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">@m.Role</p>
                                     </div>
                                 </div>
