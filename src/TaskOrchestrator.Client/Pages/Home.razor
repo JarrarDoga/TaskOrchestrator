@@ -60,7 +60,9 @@
                                 <span class="material-symbols-outlined text-base">settings</span>
                                 Manage
                             </button>
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40">Private</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40">
+                                @(string.IsNullOrWhiteSpace(b.TeamName) ? "Personal" : b.TeamName)
+                            </span>
                         </div>
                     </div>
                 }
@@ -78,6 +80,15 @@
                        placeholder="Board name"
                        class="w-full rounded-lg border border-outline-variant bg-surface-container-high px-4 py-2.5
                               text-sm text-on-surface placeholder-on-surface-variant/50 focus:border-primary focus:outline-none mb-3" />
+                <select @bind="_newTeamId"
+                        class="w-full rounded-lg border border-outline-variant bg-surface-container-high px-4 py-2.5
+                               text-sm text-on-surface focus:border-primary focus:outline-none mb-3">
+                    <option value="">Personal board</option>
+                    @foreach (var team in _teams)
+                    {
+                        <option value="@team.Id">@team.Name</option>
+                    }
+                </select>
                 @if (_createError is not null)
                 {
                     <p class="mb-3 text-xs text-error">@_createError</p>
@@ -131,14 +142,17 @@
 @* Board manage panel *@
 <BoardManagePanel BoardId="_manageBoardId"
                   CurrentUserId="_manageCurrentUserId"
+                  OnBoardDeleted="OnBoardDeleted"
                   OnClosed="() => _manageBoardId = null" />
 
 @code {
     List<BoardDto> _boards = [];
+    List<TeamDto> _teams = [];
     bool _loading = true;
 
     bool _showCreate;
     string _newName = "";
+    int? _newTeamId;
     bool _creating;
     string? _createError;
 
@@ -153,8 +167,11 @@
         await Http.PostAsync("/api/me/sync", null);
         var authState = await AuthState.GetAuthenticationStateAsync();
         _manageCurrentUserId = authState.User.FindFirst("sub")?.Value;
-        var result = await Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
-        _boards = result ?? [];
+        var boardsTask = Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
+        var teamsTask = Http.GetFromJsonAsync<List<TeamDto>>("/api/teams");
+
+        _boards = await boardsTask ?? [];
+        _teams = await teamsTask ?? [];
         _loading = false;
     }
 
@@ -169,7 +186,7 @@
         if (string.IsNullOrWhiteSpace(_newName)) { _createError = "Name is required."; return; }
         _creating = true;
         _createError = null;
-        var resp = await Http.PostAsJsonAsync("/api/boards", new CreateBoardRequest(_newName.Trim(), null));
+        var resp = await Http.PostAsJsonAsync("/api/boards", new CreateBoardRequest(_newName.Trim(), null, _newTeamId));
         if (resp.IsSuccessStatusCode)
         {
             var board = await resp.Content.ReadFromJsonAsync<BoardDto>();
@@ -202,4 +219,12 @@
 
     void OpenBoard(int boardId) => Nav.NavigateTo($"/board/{boardId}");
     void OpenManage(int boardId) => _manageBoardId = boardId;
+
+    Task OnBoardDeleted(int boardId)
+    {
+        _boards.RemoveAll(b => b.Id == boardId);
+        _manageBoardId = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
 }

@@ -2,6 +2,7 @@
 @using TaskOrchestrator.Shared.Contracts
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @if (BoardId.HasValue)
 {
@@ -126,21 +127,90 @@
                         </div>
                     }
                     @if (_memberError is not null) { <p class="text-xs text-error mt-2">@_memberError</p> }
-                    <button class="w-full flex items-center justify-center gap-2 py-4 text-on-surface-variant hover:text-primary transition-colors text-sm font-medium border-t border-outline-variant/10">
+                    <button class="w-full flex items-center justify-center gap-2 py-4 text-on-surface-variant hover:text-primary transition-colors text-sm font-medium border-t border-outline-variant/10"
+                            @onclick="() => _showManualAdd = !_showManualAdd">
                         <span class="material-symbols-outlined text-lg">person_add</span>
                         Add member manually
                     </button>
+
+                    @if (_showManualAdd)
+                    {
+                        <div class="space-y-3 p-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+                            <input value="@_manualSearch" @oninput="OnManualSearchChanged"
+                                   placeholder="Search member by name/email"
+                                   class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary text-on-surface py-2 placeholder:text-outline outline-none" />
+
+                            @if (_manualSearchResults.Count > 0)
+                            {
+                                <div class="max-h-48 overflow-y-auto rounded-lg border border-outline-variant/20">
+                                    @foreach (var result in _manualSearchResults)
+                                    {
+                                        var r = result;
+                                        <button class="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-surface-bright transition-colors"
+                                                @onclick="() => AddMemberManually(r)">
+                                            <div>
+                                                <p class="text-sm text-on-surface">@r.DisplayName</p>
+                                                <p class="text-xs text-on-surface-variant">@r.Email</p>
+                                            </div>
+                                            <span class="material-symbols-outlined text-on-surface-variant">add</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            else if (_manualSearch.Length >= 2)
+                            {
+                                <p class="text-xs text-on-surface-variant">
+                                    No existing user found. Use invite code to share access link.
+                                </p>
+                            }
+
+                            @if (_manualMessage is not null)
+                            {
+                                <p class="text-xs text-on-surface-variant">@_manualMessage</p>
+                            }
+                        </div>
+                    }
                 </section>
             </div>
 
             @* Footer *@
             <div class="px-8 py-6 border-t border-white/5 bg-surface-container-lowest flex-shrink-0">
+                @if (_showPermissions)
+                {
+                    <div class="mb-4 p-4 rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-2">
+                        <p class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Permissions Model</p>
+                        <p class="text-xs text-on-surface-variant">Owners can invite, remove, and transfer ownership. Members can view and edit board content.</p>
+                        <button class="w-full px-3 py-2 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface hover:bg-white/5 transition-colors"
+                                @onclick="CopyJoinLink">
+                            Copy Join Link
+                        </button>
+                        <div class="pt-2 border-t border-outline-variant/20 space-y-2">
+                            <p class="text-xs text-on-surface-variant">Send invite emails (comma-separated):</p>
+                            <textarea @bind="_emailInviteInput"
+                                      rows="2"
+                                      placeholder="alice@company.com, bob@company.com"
+                                      class="w-full rounded-lg border border-outline-variant bg-surface-container-high px-3 py-2 text-xs text-on-surface placeholder-on-surface-variant/50 focus:border-primary focus:outline-none"></textarea>
+                            <button class="w-full px-3 py-2 rounded-lg btn-gradient text-white text-xs font-semibold disabled:opacity-50"
+                                    disabled="@_sendingEmailInvites"
+                                    @onclick="SendInviteEmails">
+                                @(_sendingEmailInvites ? "Sending..." : "Send Invite Emails")
+                            </button>
+                            @if (_emailInviteMessage is not null)
+                            {
+                                <p class="text-xs text-on-surface-variant">@_emailInviteMessage</p>
+                            }
+                        </div>
+                    </div>
+                }
                 <div class="flex gap-3">
-                    <button class="flex-1 px-4 py-3 rounded-xl border border-outline-variant text-on-surface text-sm font-headline font-bold hover:bg-white/5 transition-colors">
+                    <button class="flex-1 px-4 py-3 rounded-xl border border-outline-variant text-on-surface text-sm font-headline font-bold hover:bg-white/5 transition-colors"
+                            @onclick="() => _showPermissions = !_showPermissions">
                         Permissions
                     </button>
-                    <button class="flex-1 px-4 py-3 rounded-xl bg-error-container/20 text-error border border-error-container/30 text-sm font-headline font-bold hover:bg-error-container/30 transition-colors">
-                        Archive Board
+                    <button class="flex-1 px-4 py-3 rounded-xl bg-error-container/20 text-error border border-error-container/30 text-sm font-headline font-bold hover:bg-error-container/30 transition-colors disabled:opacity-50"
+                            @onclick="DeleteBoard"
+                            disabled="@_deletingBoard">
+                        @(_confirmDelete ? (_deletingBoard ? "Deleting..." : "Confirm Delete") : "Archive Board")
                     </button>
                 </div>
             </div>
@@ -152,6 +222,7 @@
     [Parameter] public int? BoardId { get; set; }
     [Parameter] public string? CurrentUserId { get; set; }
     [Parameter] public EventCallback OnClosed { get; set; }
+    [Parameter] public EventCallback<int> OnBoardDeleted { get; set; }
 
     List<BoardMemberDto> _members = [];
     BoardInviteDto? _invite;
@@ -159,6 +230,18 @@
     bool _loadingMembers, _loadingInvite;
     string? _memberError, _inviteError;
     bool _copySuccess;
+    bool _showManualAdd;
+    bool _showPermissions;
+    bool _deletingBoard;
+    bool _confirmDelete;
+    bool _sendingEmailInvites;
+
+    string _manualSearch = "";
+    string? _manualMessage;
+    string _emailInviteInput = "";
+    string? _emailInviteMessage;
+    List<UserSearchDto> _manualSearchResults = [];
+    System.Threading.CancellationTokenSource? _manualSearchCts;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -167,6 +250,14 @@
         _invite = null;
         _memberError = null;
         _inviteError = null;
+        _manualMessage = null;
+        _manualSearch = "";
+        _manualSearchResults = [];
+        _emailInviteInput = "";
+        _emailInviteMessage = null;
+        _showManualAdd = false;
+        _showPermissions = false;
+        _confirmDelete = false;
         await Task.WhenAll(LoadMembers(), LoadInvite());
     }
 
@@ -244,6 +335,155 @@
             await LoadMembers();
         else
             _memberError = $"Transfer failed ({(int)resp.StatusCode})";
+    }
+
+    async Task OnManualSearchChanged(ChangeEventArgs e)
+    {
+        _manualSearch = e.Value?.ToString() ?? "";
+        _manualMessage = null;
+
+        _manualSearchCts?.Cancel();
+        _manualSearchCts = new System.Threading.CancellationTokenSource();
+        var token = _manualSearchCts.Token;
+
+        if (_manualSearch.Length < 2)
+        {
+            _manualSearchResults = [];
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(250, token);
+            var results = await Http.GetFromJsonAsync<List<UserSearchDto>>(
+                $"/api/users/search?q={Uri.EscapeDataString(_manualSearch)}",
+                token);
+
+            var existing = _members.Select(m => m.UserId).ToHashSet();
+            _manualSearchResults = (results ?? [])
+                .Where(r => !existing.Contains(r.UserId))
+                .ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore canceled searches.
+        }
+        catch
+        {
+            _manualSearchResults = [];
+        }
+    }
+
+    async Task AddMemberManually(UserSearchDto user)
+    {
+        _memberError = null;
+        _manualMessage = null;
+        var resp = await Http.PostAsJsonAsync(
+            $"/api/boards/{BoardId}/members",
+            new AddBoardMemberRequest(user.UserId));
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            _memberError = $"Could not add member ({(int)resp.StatusCode}).";
+            return;
+        }
+
+        await LoadMembers();
+        _manualSearch = "";
+        _manualSearchResults = [];
+        _manualMessage = $"{user.DisplayName} added.";
+    }
+
+    async Task CopyJoinLink()
+    {
+        _inviteError = null;
+        _manualMessage = null;
+
+        if (_invite is null)
+        {
+            var resp = await Http.PostAsJsonAsync($"/api/boards/{BoardId}/invite",
+                new GenerateInviteRequest(null, null));
+            if (!resp.IsSuccessStatusCode)
+            {
+                _inviteError = $"Could not create invite ({(int)resp.StatusCode}).";
+                return;
+            }
+            _invite = await resp.Content.ReadFromJsonAsync<BoardInviteDto>();
+        }
+
+        if (_invite is null) return;
+        var joinUrl = $"{Nav.BaseUri.TrimEnd('/')}/join/{_invite.Code}";
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", joinUrl);
+        _manualMessage = "Join link copied to clipboard.";
+    }
+
+    async Task SendInviteEmails()
+    {
+        _emailInviteMessage = null;
+        var raw = _emailInviteInput?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            _emailInviteMessage = "Enter at least one email.";
+            return;
+        }
+
+        _sendingEmailInvites = true;
+        try
+        {
+            var resp = await Http.PostAsJsonAsync(
+                $"/api/boards/{BoardId}/invite/email",
+                new SendBoardInviteEmailRequest([raw]));
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                _emailInviteMessage = $"Invite send failed ({(int)resp.StatusCode}).";
+                return;
+            }
+
+            var data = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            var sent = data.TryGetProperty("sent", out var sentEl) ? sentEl.GetInt32() : 0;
+            var failed = data.TryGetProperty("failed", out var failedEl) && failedEl.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? failedEl.GetArrayLength()
+                : 0;
+
+            _emailInviteMessage = failed == 0
+                ? $"Sent {sent} invite email(s)."
+                : $"Sent {sent} invite email(s), {failed} failed.";
+            _emailInviteInput = "";
+        }
+        catch
+        {
+            _emailInviteMessage = "Failed to send invite emails.";
+        }
+        finally
+        {
+            _sendingEmailInvites = false;
+        }
+    }
+
+    async Task DeleteBoard()
+    {
+        if (!BoardId.HasValue) return;
+
+        _memberError = null;
+        if (!_confirmDelete)
+        {
+            _confirmDelete = true;
+            return;
+        }
+
+        _deletingBoard = true;
+        var resp = await Http.DeleteAsync($"/api/boards/{BoardId.Value}");
+        _deletingBoard = false;
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            _memberError = $"Could not delete board ({(int)resp.StatusCode}).";
+            return;
+        }
+
+        await OnBoardDeleted.InvokeAsync(BoardId.Value);
+        await Close();
     }
 
     static string FormatRelative(DateTime dt)

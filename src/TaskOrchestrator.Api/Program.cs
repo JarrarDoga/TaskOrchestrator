@@ -12,6 +12,7 @@ using TaskOrchestrator.Api.Persistence;
 using TaskOrchestrator.Api.Persistence.Repositories;
 using TaskOrchestrator.Api.Services;
 using TaskOrchestrator.Api.Services.FileStorage;
+using TaskOrchestrator.Api.Services.Invites;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +68,7 @@ builder.Services.AddScoped<ITeamRepository,        TeamRepository>();
 
 // --- User context (reads JWT claims) ---
 builder.Services.AddScoped<IUserContext, UserContext>();
+builder.Services.AddHttpClient<IInviteEmailService, ResendInviteEmailService>();
 
 // --- Real-time ---
 builder.Services.AddSignalR();

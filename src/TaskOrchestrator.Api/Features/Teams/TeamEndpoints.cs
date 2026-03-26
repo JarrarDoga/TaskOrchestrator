@@ -13,7 +13,9 @@ public static class TeamEndpoints
 
         group.MapGet("/",                              GetAll);
         group.MapGet("/{id:int}",                     GetById);
+        group.MapGet("/{id:int}/boards",              GetBoards);
         group.MapPost("/",                             Create);
+        group.MapPost("/{id:int}/boards",             CreateBoard);
         group.MapDelete("/{id:int}",                  Delete);
         group.MapPost("/{id:int}/members",             AddMember);
         group.MapDelete("/{id:int}/members/{userId}", RemoveMember);
@@ -28,10 +30,21 @@ public static class TeamEndpoints
     static async Task<IResult> GetAll(IUserContext user, ITeamRepository teams) =>
         Results.Ok(await teams.GetAllAsync(user.UserId));
 
-    static async Task<IResult> GetById(int id, ITeamRepository teams)
+    static async Task<IResult> GetById(int id, IUserContext user, ITeamRepository teams)
     {
+        if (!user.IsAuthenticated) return Results.Unauthorized();
         var team = await teams.GetByIdAsync(id);
-        return team is null ? Results.NotFound() : Results.Ok(team);
+        if (team is null) return Results.NotFound();
+        if (!await teams.IsMemberAsync(id, user.UserId)) return Results.Forbid();
+        return Results.Ok(team);
+    }
+
+    static async Task<IResult> GetBoards(
+        int id, IUserContext user, ITeamRepository teams)
+    {
+        if (!user.IsAuthenticated) return Results.Unauthorized();
+        if (!await teams.IsMemberAsync(id, user.UserId)) return Results.Forbid();
+        return Results.Ok(await teams.GetBoardsAsync(id, user.UserId));
     }
 
     static async Task<IResult> Create(
@@ -51,6 +64,26 @@ public static class TeamEndpoints
         if (!user.IsAuthenticated) return Results.Unauthorized();
         if (!await teams.IsOwnerAsync(id, user.UserId)) return Results.Forbid();
         return await teams.DeleteAsync(id) ? Results.NoContent() : Results.NotFound();
+    }
+
+    static async Task<IResult> CreateBoard(
+        int id,
+        [FromBody] TeamCreateBoardRequest req,
+        IUserContext user,
+        ITeamRepository teams,
+        IBoardRepository boards)
+    {
+        if (!user.IsAuthenticated) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(req.Name))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+                { ["Name"] = ["Name is required."] });
+
+        if (!await teams.IsMemberAsync(id, user.UserId)) return Results.Forbid();
+
+        var board = await boards.CreateAsync(
+            new CreateBoardRequest(req.Name.Trim(), req.Description?.Trim(), id),
+            user.UserId);
+        return Results.Created($"/api/boards/{board.Id}", board);
     }
 
     static async Task<IResult> AddMember(

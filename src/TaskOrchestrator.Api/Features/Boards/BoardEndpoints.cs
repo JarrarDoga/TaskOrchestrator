@@ -41,11 +41,14 @@ public static class BoardEndpoints
 
     static async Task<IResult> Create(
         [FromBody] CreateBoardRequest req,
-        IUserContext user, IBoardRepository boards)
+        IUserContext user, IBoardRepository boards, ITeamRepository teams)
     {
         if (string.IsNullOrWhiteSpace(req.Name))
             return Results.ValidationProblem(new Dictionary<string, string[]>
                 { ["Name"] = ["Name is required."] });
+
+        if (req.TeamId.HasValue && !await teams.IsMemberAsync(req.TeamId.Value, user.UserId))
+            return Results.Forbid();
 
         var board = await boards.CreateAsync(req, user.UserId);
         return Results.Created($"/api/boards/{board.Id}", board);
