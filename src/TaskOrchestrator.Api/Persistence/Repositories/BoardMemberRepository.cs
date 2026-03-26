@@ -8,8 +8,18 @@ public sealed class BoardMemberRepository(IDbConnectionFactory db) : IBoardMembe
     public async Task<bool> IsMemberAsync(int boardId, string userId)
     {
         using var conn = db.CreateConnection();
+        // Grant access if the user is a direct board member OR a member of the team that owns the board
         var count = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(1) FROM BoardMembers WHERE BoardId = @BoardId AND UserId = @UserId",
+            """
+            SELECT COUNT(1) FROM (
+                SELECT 1 FROM BoardMembers
+                WHERE BoardId = @BoardId AND UserId = @UserId
+                UNION
+                SELECT 1 FROM Boards b
+                INNER JOIN TeamMembers tm ON tm.TeamId = b.TeamId AND tm.UserId = @UserId
+                WHERE b.Id = @BoardId AND b.TeamId IS NOT NULL
+            ) t
+            """,
             new { BoardId = boardId, UserId = userId });
         return count > 0;
     }
