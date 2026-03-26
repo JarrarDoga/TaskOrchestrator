@@ -158,32 +158,17 @@ public static class TeamEndpoints
         ));
     }
 
-    // Requires auth — verifies the signed-in user's email matches the invite, then adds them
+    // Requires auth — token possession is proof of identity (32-char random hex, one-time use)
     static async Task<IResult> AcceptInvite(
         string token,
         IUserContext user,
         ITeamInviteRepository invites,
-        ITeamRepository teams,
-        IUserRepository users)
+        ITeamRepository teams)
     {
         var invite = await invites.GetByTokenAsync(token);
-        if (invite is null)                          return Results.NotFound("Invite not found.");
-        if (invite.AcceptedAt.HasValue)              return Results.Conflict("This invite has already been used.");
-        if (invite.ExpiresAt < DateTime.UtcNow)      return Results.Problem(title: "Expired", detail: "This invite has expired.", statusCode: 410);
-
-        // Email-lock: look up email from DB (JWT access tokens don't always carry the email claim,
-        // e.g. Google OAuth via Auth0 omits it from the access token)
-        var userEmail = await users.GetEmailAsync(user.UserId)
-                        ?? user.Email; // fall back to JWT claim if DB row not yet created
-
-        if (string.IsNullOrWhiteSpace(userEmail) ||
-            !string.Equals(userEmail.Trim(), invite.InviteeEmail, StringComparison.OrdinalIgnoreCase))
-        {
-            return Results.Problem(
-                title:      "Wrong account",
-                detail:     $"This invite was sent to {invite.InviteeEmail}. Please sign in with that account.",
-                statusCode: 403);
-        }
+        if (invite is null)                     return Results.NotFound("Invite not found.");
+        if (invite.AcceptedAt.HasValue)         return Results.Conflict("This invite has already been used.");
+        if (invite.ExpiresAt < DateTime.UtcNow) return Results.Problem(title: "Expired", detail: "This invite has expired.", statusCode: 410);
 
         // Idempotent: already a member is fine
         if (!await teams.IsMemberAsync(invite.TeamId, user.UserId))
