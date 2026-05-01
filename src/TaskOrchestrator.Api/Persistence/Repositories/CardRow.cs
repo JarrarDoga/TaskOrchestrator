@@ -14,7 +14,7 @@ internal sealed record CardRow(
     string? Description,
     int Position,
     int Version,
-    sbyte Priority,
+    short Priority,
     string? AssignedToUserId,
     string? Metadata,
     DateTime UpdatedAtUtc,

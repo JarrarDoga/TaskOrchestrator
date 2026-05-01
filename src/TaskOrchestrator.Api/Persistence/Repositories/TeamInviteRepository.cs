@@ -33,7 +33,7 @@ public sealed class TeamInviteRepository(IDbConnectionFactory db) : ITeamInviteR
     {
         using var conn = db.CreateConnection();
         var rows = await conn.ExecuteAsync(
-            "UPDATE TeamInvites SET AcceptedAt = UTC_TIMESTAMP(3) WHERE Token = @Token AND AcceptedAt IS NULL",
+            "UPDATE TeamInvites SET AcceptedAt = NOW() WHERE Token = @Token AND AcceptedAt IS NULL",
             new { Token = token });
         return rows > 0;
     }

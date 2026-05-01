@@ -54,8 +54,8 @@ public sealed class CardRepository(IDbConnectionFactory db) : ICardRepository
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Cards (BoardId, ColumnId, Title, Description, Position, Priority, Metadata, UpdatedAtUtc, UpdatedByUserId)
-            VALUES (@BoardId, @ColumnId, @Title, @Description, @Position, @Priority, '{}', UTC_TIMESTAMP(3), @UserId);
-            SELECT LAST_INSERT_ID();
+            VALUES (@BoardId, @ColumnId, @Title, @Description, @Position, @Priority, '{}', NOW(), @UserId)
+            RETURNING Id
             """,
             new { request.BoardId, request.ColumnId, request.Title, request.Description,
                   Position = position, Priority = (int)request.Priority, UserId = userId });
@@ -81,7 +81,7 @@ public sealed class CardRepository(IDbConnectionFactory db) : ICardRepository
                 Priority        = @Priority,
                 AssignedToUserId = @AssignedToUserId,
                 Metadata        = COALESCE(@Metadata, Metadata),
-                UpdatedAtUtc    = UTC_TIMESTAMP(3),
+                UpdatedAtUtc    = NOW(),
                 UpdatedByUserId = @UserId,
                 Version         = Version + 1
             WHERE Id = @Id AND Version = @Version
@@ -105,7 +105,7 @@ public sealed class CardRepository(IDbConnectionFactory db) : ICardRepository
             UPDATE Cards
             SET ColumnId        = @TargetColumnId,
                 Position        = @TargetPosition,
-                UpdatedAtUtc    = UTC_TIMESTAMP(3),
+                UpdatedAtUtc    = NOW(),
                 UpdatedByUserId = @UserId,
                 Version         = Version + 1
             WHERE Id = @Id AND Version = @Version

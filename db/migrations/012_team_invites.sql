@@ -1,13 +1,13 @@
-CREATE TABLE TeamInvites (
-    Token           VARCHAR(32)  NOT NULL PRIMARY KEY,
-    TeamId          INT          NOT NULL,
-    InviteeEmail    VARCHAR(255) NOT NULL,
-    CreatedByUserId VARCHAR(128) NOT NULL,
-    CreatedAt       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ExpiresAt       DATETIME     NOT NULL,
-    AcceptedAt      DATETIME     NULL,
+CREATE TABLE IF NOT EXISTS teaminvites (
+    token           VARCHAR(32)  NOT NULL PRIMARY KEY,
+    teamid          INT          NOT NULL,
+    inviteeemail    VARCHAR(255) NOT NULL,
+    createdbyuserid VARCHAR(128) NOT NULL,
+    createdat       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    expiresat       TIMESTAMPTZ  NOT NULL,
+    acceptedat      TIMESTAMPTZ,
     CONSTRAINT fk_teaminvites_team
-        FOREIGN KEY (TeamId) REFERENCES Teams(Id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        FOREIGN KEY (teamid) REFERENCES teams(id) ON DELETE CASCADE
+);
 
-CREATE INDEX idx_teaminvites_email ON TeamInvites (InviteeEmail);
+CREATE INDEX IF NOT EXISTS idx_teaminvites_email ON teaminvites (inviteeemail);

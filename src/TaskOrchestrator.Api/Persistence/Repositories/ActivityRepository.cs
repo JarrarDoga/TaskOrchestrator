@@ -46,18 +46,18 @@ public sealed class ActivityRepository(IDbConnectionFactory db) : IActivityRepos
                   UserId = userId, DisplayName = displayName, Description = description });
     }
 
-    // MariaDB TINYINT projects as sbyte; convert explicitly to enum-backed DTO.
+    // PostgreSQL SMALLINT projects as short; convert explicitly to enum-backed DTO.
     private sealed record ActivityRow(
         int Id,
         int CardId,
         int BoardId,
-        sbyte EventType,
+        short EventType,
         string? UserId,
         string? UserDisplayName,
         string Description,
         DateTime OccurredAtUtc)
     {
         public ActivityEventDto ToDto() =>
-            new(Id, CardId, BoardId, (ActivityEventType)EventType, UserId, UserDisplayName, Description, OccurredAtUtc);
+            new(Id, CardId, BoardId, (ActivityEventType)(int)EventType, UserId, UserDisplayName, Description, OccurredAtUtc);
     }
 }

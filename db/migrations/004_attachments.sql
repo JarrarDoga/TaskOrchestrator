@@ -1,14 +1,15 @@
--- File content lives on disk (or eventually S3/Blob). Only metadata here.
-CREATE TABLE IF NOT EXISTS Attachments (
-    Id                INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    CardId            INT          NOT NULL,
-    FileName          VARCHAR(255) NOT NULL,
-    ContentType       VARCHAR(100) NOT NULL,
-    FileSizeBytes     BIGINT       NOT NULL DEFAULT 0,
-    StoragePath       VARCHAR(512) NOT NULL,
-    UploadedAtUtc     DATETIME(3)  NOT NULL DEFAULT (UTC_TIMESTAMP(3)),
-    UploadedByUserId  VARCHAR(128)     NULL,
+-- File content lives on disk (or S3/Blob). Only metadata here.
+CREATE TABLE IF NOT EXISTS attachments (
+    id               SERIAL       NOT NULL PRIMARY KEY,
+    cardid           INT          NOT NULL,
+    filename         VARCHAR(255) NOT NULL,
+    contenttype      VARCHAR(100) NOT NULL,
+    filesizebytes    BIGINT       NOT NULL DEFAULT 0,
+    storagepath      VARCHAR(512) NOT NULL,
+    uploadedatutc    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    uploadedbyuserid VARCHAR(128),
 
-    CONSTRAINT fk_attachments_card FOREIGN KEY (CardId) REFERENCES Cards(Id) ON DELETE CASCADE,
-    INDEX idx_attachments_card (CardId)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT fk_attachments_card FOREIGN KEY (cardid) REFERENCES cards(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_card ON attachments (cardid);

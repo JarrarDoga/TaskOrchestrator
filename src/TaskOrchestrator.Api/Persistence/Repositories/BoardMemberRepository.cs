@@ -51,8 +51,9 @@ public sealed class BoardMemberRepository(IDbConnectionFactory db) : IBoardMembe
         using var conn = db.CreateConnection();
         await conn.ExecuteAsync(
             """
-            INSERT IGNORE INTO BoardMembers (BoardId, UserId, Role)
+            INSERT INTO BoardMembers (BoardId, UserId, Role)
             VALUES (@BoardId, @UserId, @Role)
+            ON CONFLICT DO NOTHING
             """,
             new { BoardId = boardId, UserId = userId, Role = role });
     }
