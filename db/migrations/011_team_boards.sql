@@ -1,11 +1,9 @@
--- Link boards to teams (optional) so ownership and access can be modeled at org level.
-ALTER TABLE Boards
-    ADD COLUMN TeamId INT NULL AFTER Description;
+-- Link boards to teams so ownership and access can be modeled at org level.
+ALTER TABLE boards ADD COLUMN IF NOT EXISTS teamid INT;
 
-ALTER TABLE Boards
-    ADD INDEX idx_boards_team (TeamId);
+CREATE INDEX IF NOT EXISTS idx_boards_team ON boards (teamid);
 
-ALTER TABLE Boards
+ALTER TABLE boards
     ADD CONSTRAINT fk_boards_team
-    FOREIGN KEY (TeamId) REFERENCES Teams(Id)
+    FOREIGN KEY (teamid) REFERENCES teams(id)
     ON DELETE SET NULL;

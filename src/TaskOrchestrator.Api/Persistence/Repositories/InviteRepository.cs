@@ -14,8 +14,8 @@ public sealed class InviteRepository(IDbConnectionFactory db) : IInviteRepositor
             """
             SELECT Id, Code, CreatedAt, ExpiresAt, MaxUses, TimesUsed
             FROM BoardInvites
-            WHERE BoardId = @BoardId AND IsActive = 1
-              AND (ExpiresAt IS NULL OR ExpiresAt > UTC_TIMESTAMP(3))
+            WHERE BoardId = @BoardId AND IsActive = TRUE
+              AND (ExpiresAt IS NULL OR ExpiresAt > NOW())
             LIMIT 1
             """,
             new { BoardId = boardId });
@@ -28,8 +28,8 @@ public sealed class InviteRepository(IDbConnectionFactory db) : IInviteRepositor
             """
             SELECT Id, BoardId, Code, CreatedAt, ExpiresAt, MaxUses, TimesUsed
             FROM BoardInvites
-            WHERE Code = @Code AND IsActive = 1
-              AND (ExpiresAt IS NULL OR ExpiresAt > UTC_TIMESTAMP(3))
+            WHERE Code = @Code AND IsActive = TRUE
+              AND (ExpiresAt IS NULL OR ExpiresAt > NOW())
               AND (MaxUses IS NULL OR TimesUsed < MaxUses)
             """,
             new { Code = code });
@@ -50,15 +50,15 @@ public sealed class InviteRepository(IDbConnectionFactory db) : IInviteRepositor
 
         // Deactivate any existing code for this board
         await conn.ExecuteAsync(
-            "UPDATE BoardInvites SET IsActive = 0 WHERE BoardId = @BoardId",
+            "UPDATE BoardInvites SET IsActive = FALSE WHERE BoardId = @BoardId",
             new { BoardId = boardId });
 
         var code = NewCode();
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO BoardInvites (BoardId, Code, CreatedByUserId, ExpiresAt, MaxUses)
-            VALUES (@BoardId, @Code, @CreatedBy, @ExpiresAt, @MaxUses);
-            SELECT LAST_INSERT_ID();
+            VALUES (@BoardId, @Code, @CreatedBy, @ExpiresAt, @MaxUses)
+            RETURNING Id
             """,
             new { BoardId = boardId, Code = code, CreatedBy = createdByUserId, expiresAt, maxUses });
 
@@ -69,7 +69,7 @@ public sealed class InviteRepository(IDbConnectionFactory db) : IInviteRepositor
     {
         using var conn = db.CreateConnection();
         await conn.ExecuteAsync(
-            "UPDATE BoardInvites SET IsActive = 0 WHERE BoardId = @BoardId",
+            "UPDATE BoardInvites SET IsActive = FALSE WHERE BoardId = @BoardId",
             new { BoardId = boardId });
     }
 

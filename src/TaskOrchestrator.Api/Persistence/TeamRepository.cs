@@ -97,8 +97,8 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Teams (Name, Description, Slug, Icon, IsPublic, CreatedByUserId)
-            VALUES (@Name, @Description, @Slug, @Icon, 0, @CreatedByUserId);
-            SELECT LAST_INSERT_ID();
+            VALUES (@Name, @Description, @Slug, @Icon, FALSE, @CreatedByUserId)
+            RETURNING Id
             """,
             new
             {
@@ -120,7 +120,7 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             foreach (var memberId in request.MemberUserIds.Where(m => m != ownerUserId))
             {
                 await conn.ExecuteAsync(
-                    "INSERT IGNORE INTO TeamMembers (TeamId, UserId, Role) VALUES (@TeamId, @UserId, 'Member')",
+                    "INSERT INTO TeamMembers (TeamId, UserId, Role) VALUES (@TeamId, @UserId, 'Member') ON CONFLICT DO NOTHING",
                     new { TeamId = id, UserId = memberId });
             }
         }
@@ -157,16 +157,17 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
     {
         using var conn = db.CreateConnection();
         await conn.ExecuteAsync(
-            "INSERT IGNORE INTO TeamMembers (TeamId, UserId, Role) VALUES (@TeamId, @UserId, 'Member')",
+            "INSERT INTO TeamMembers (TeamId, UserId, Role) VALUES (@TeamId, @UserId, 'Member') ON CONFLICT DO NOTHING",
             new { TeamId = teamId, UserId = userId });
 
         // Enroll in all existing boards for this team so they appear on the user's Boards page
         await conn.ExecuteAsync(
             """
-            INSERT IGNORE INTO BoardMembers (BoardId, UserId, Role)
+            INSERT INTO BoardMembers (BoardId, UserId, Role)
             SELECT b.Id, @UserId, 'Member'
             FROM Boards b
             WHERE b.TeamId = @TeamId
+            ON CONFLICT DO NOTHING
             """,
             new { TeamId = teamId, UserId = userId });
     }

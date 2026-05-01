@@ -1,22 +1,19 @@
--- Teams: organizational groupings of users that can share boards
-CREATE TABLE Teams (
-    Id              INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    Name            VARCHAR(200) NOT NULL,
-    Description     TEXT,
-    Slug            VARCHAR(100) NOT NULL,
-    Icon            VARCHAR(100) NOT NULL DEFAULT 'group',
-    IsPublic        TINYINT(1)   NOT NULL DEFAULT 1,
-    CreatedAt       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CreatedByUserId VARCHAR(128) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS teams (
+    id              SERIAL       NOT NULL PRIMARY KEY,
+    name            VARCHAR(200) NOT NULL,
+    description     TEXT,
+    slug            VARCHAR(100) NOT NULL,
+    icon            VARCHAR(100) NOT NULL DEFAULT 'group',
+    ispublic        BOOLEAN      NOT NULL DEFAULT TRUE,
+    createdat       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    createdbyuserid VARCHAR(128) NOT NULL
+);
 
--- Team membership (many-to-many with role)
--- FK to Users omitted: collation varies by host; integrity enforced at app layer.
-CREATE TABLE TeamMembers (
-    TeamId   INT          NOT NULL,
-    UserId   VARCHAR(128) NOT NULL,
-    Role     VARCHAR(20)  NOT NULL DEFAULT 'Member',
-    JoinedAt DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (TeamId, UserId),
-    CONSTRAINT fk_teammembers_team FOREIGN KEY (TeamId) REFERENCES Teams(Id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS teammembers (
+    teamid   INT          NOT NULL,
+    userid   VARCHAR(128) NOT NULL,
+    role     VARCHAR(20)  NOT NULL DEFAULT 'Member',
+    joinedat TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (teamid, userid),
+    CONSTRAINT fk_teammembers_team FOREIGN KEY (teamid) REFERENCES teams(id) ON DELETE CASCADE
+);

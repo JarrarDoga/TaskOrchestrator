@@ -11,12 +11,12 @@ public sealed class UserRepository(IDbConnectionFactory db) : IUserRepository
         await conn.ExecuteAsync(
             """
             INSERT INTO Users (Id, DisplayName, Email, AvatarUrl, LastSeenAt)
-            VALUES (@Id, @DisplayName, @Email, @AvatarUrl, UTC_TIMESTAMP(3))
-            ON DUPLICATE KEY UPDATE
-                DisplayName = COALESCE(VALUES(DisplayName), DisplayName),
-                Email       = COALESCE(VALUES(Email), Email),
-                AvatarUrl   = COALESCE(VALUES(AvatarUrl), AvatarUrl),
-                LastSeenAt  = UTC_TIMESTAMP(3)
+            VALUES (@Id, @DisplayName, @Email, @AvatarUrl, NOW())
+            ON CONFLICT (Id) DO UPDATE SET
+                DisplayName = COALESCE(EXCLUDED.DisplayName, Users.DisplayName),
+                Email       = COALESCE(EXCLUDED.Email, Users.Email),
+                AvatarUrl   = COALESCE(EXCLUDED.AvatarUrl, Users.AvatarUrl),
+                LastSeenAt  = NOW()
             """,
             new { Id = id, DisplayName = displayName ?? id, email, avatarUrl });
     }

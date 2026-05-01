@@ -1,9 +1,9 @@
 using System.Data;
-using MySqlConnector;
+using Npgsql;
 
 namespace TaskOrchestrator.Api.Persistence;
 
-public sealed class MariaDbConnectionFactory(string connectionString) : IDbConnectionFactory
+public sealed class PostgresConnectionFactory(string connectionString) : IDbConnectionFactory
 {
-    public IDbConnection CreateConnection() => new MySqlConnection(connectionString);
+    public IDbConnection CreateConnection() => new NpgsqlConnection(connectionString);
 }

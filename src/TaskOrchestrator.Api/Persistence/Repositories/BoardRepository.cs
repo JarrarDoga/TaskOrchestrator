@@ -107,13 +107,10 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
     public async Task<BoardDto> CreateAsync(CreateBoardRequest request, string ownerUserId)
     {
         using var conn = db.CreateConnection();
-        // Board + owner membership in one logical unit. Not wrapped in an explicit
-        // transaction here because LAST_INSERT_ID() is session-scoped and the two
-        // inserts are fast; add a transaction if you need strict atomicity.
         var id = await conn.ExecuteScalarAsync<int>(
             """
-            INSERT INTO Boards (Name, Description, TeamId) VALUES (@Name, @Description, @TeamId);
-            SELECT LAST_INSERT_ID();
+            INSERT INTO Boards (Name, Description, TeamId) VALUES (@Name, @Description, @TeamId)
+            RETURNING Id
             """,
             new { request.Name, request.Description, request.TeamId });
 
@@ -125,11 +122,12 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
         {
             await conn.ExecuteAsync(
                 """
-                INSERT IGNORE INTO BoardMembers (BoardId, UserId, Role)
+                INSERT INTO BoardMembers (BoardId, UserId, Role)
                 SELECT @BoardId, tm.UserId, 'Member'
                 FROM TeamMembers tm
                 WHERE tm.TeamId = @TeamId
                   AND tm.UserId <> @OwnerUserId
+                ON CONFLICT DO NOTHING
                 """,
                 new { BoardId = id, TeamId = request.TeamId.Value, OwnerUserId = ownerUserId });
         }

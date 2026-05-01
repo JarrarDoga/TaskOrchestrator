@@ -41,8 +41,8 @@ public sealed class AttachmentRepository(IDbConnectionFactory db) : IAttachmentR
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Attachments (CardId, FileName, ContentType, FileSizeBytes, StoragePath, UploadedByUserId)
-            VALUES (@CardId, @FileName, @ContentType, @FileSizeBytes, @StoragePath, @UserId);
-            SELECT LAST_INSERT_ID();
+            VALUES (@CardId, @FileName, @ContentType, @FileSizeBytes, @StoragePath, @UserId)
+            RETURNING Id
             """,
             new { request.CardId, request.FileName, request.ContentType,
                   request.FileSizeBytes, request.StoragePath, UserId = userId });

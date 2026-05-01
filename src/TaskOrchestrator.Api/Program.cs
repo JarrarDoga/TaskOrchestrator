@@ -52,10 +52,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
 // --- Persistence ---
-var connStr = builder.Configuration.GetConnectionString("MariaDb")
-    ?? throw new InvalidOperationException("Connection string 'MariaDb' is not configured.");
+var connStr = builder.Configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException("Connection string 'Postgres' is not configured.");
 
-builder.Services.AddSingleton<IDbConnectionFactory>(new MariaDbConnectionFactory(connStr));
+builder.Services.AddSingleton<IDbConnectionFactory>(new PostgresConnectionFactory(connStr));
 builder.Services.AddScoped<IBoardRepository,       BoardRepository>();
 builder.Services.AddScoped<ICardRepository,        CardRepository>();
 builder.Services.AddScoped<IAttachmentRepository,  AttachmentRepository>();

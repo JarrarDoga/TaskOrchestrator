@@ -24,8 +24,8 @@ public sealed class ColumnRepository(IDbConnectionFactory db) : IColumnRepositor
         var id = await conn.ExecuteScalarAsync<int>(
             """
             INSERT INTO Columns (BoardId, Title, Color, Position)
-            VALUES (@BoardId, @Title, @Color, @Position);
-            SELECT LAST_INSERT_ID();
+            VALUES (@BoardId, @Title, @Color, @Position)
+            RETURNING Id
             """,
             new { request.BoardId, request.Title, request.Color, Position = nextPos });
 

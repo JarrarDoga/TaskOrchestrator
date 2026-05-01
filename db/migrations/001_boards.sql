@@ -1,10 +1,7 @@
--- Run in order against an empty `task_orchestrator` database.
-SET NAMES utf8mb4;
-
-CREATE TABLE IF NOT EXISTS Boards (
-    Id          INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    Name        VARCHAR(200) NOT NULL,
-    Description TEXT             NULL,
-    CreatedAt   DATETIME(3)  NOT NULL DEFAULT (UTC_TIMESTAMP(3)),
-    Version     INT          NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS boards (
+    id          SERIAL       NOT NULL PRIMARY KEY,
+    name        VARCHAR(200) NOT NULL,
+    description TEXT,
+    createdat   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    version     INT          NOT NULL DEFAULT 1
+);

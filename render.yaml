@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: task-orchestrator-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    port: 8080
+    healthCheckPath: /health
+    envVars:
+      - key: ConnectionStrings__Postgres
+        fromDatabase:
+          name: task-orchestrator-db
+          property: connectionString
+      - key: Auth0__Domain
+        sync: false
+      - key: Auth0__Audience
+        sync: false
+      - key: Resend__ApiKey
+        sync: false
+      - key: Resend__FromEmail
+        sync: false
+      - key: Resend__FromName
+        value: Task Orchestrator
+      - key: InviteEmail__ClientBaseUrl
+        value: https://task-orchestrator-phi.vercel.app
+      - key: AllowedOrigins__0
+        value: https://task-orchestrator-phi.vercel.app
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+databases:
+  - name: task-orchestrator-db
+    plan: free
+    databaseName: task_orchestrator

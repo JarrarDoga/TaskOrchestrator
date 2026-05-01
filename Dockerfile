@@ -11,7 +11,7 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-# uploads dir — Railway maps a volume here if you want persistence
+# uploads dir — on Render free tier the filesystem is ephemeral; use a volume or object storage for persistence
 RUN mkdir -p uploads
 
 ENV ASPNETCORE_URLS=http://+:8080
