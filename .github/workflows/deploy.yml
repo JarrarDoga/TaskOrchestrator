@@ -56,13 +56,13 @@ jobs:
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel deploy --prod --token="$VERCEL_TOKEN" --yes
 
-  # ── API → Railway ──────────────────────────────────────────────────────────
-  # Railway watches this repo directly and redeploys automatically on push to
+  # ── API → Render ───────────────────────────────────────────────────────────
+  # Render watches this repo directly and redeploys automatically on push to
   # main using the Dockerfile. No workflow step needed — this job just records
   # the deployment in the GitHub Actions log for visibility.
-  notify-railway:
-    name: API → Railway (auto)
+  notify-render:
+    name: API → Render (auto)
     runs-on: ubuntu-latest
     steps:
-      - name: Railway deploys automatically
-        run: echo "Railway is watching this repo. API deployment triggered by push to main."
+      - name: Render deploys automatically
+        run: echo "Render is watching this repo. API deployment triggered by push to main."
