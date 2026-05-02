@@ -225,7 +225,11 @@
         var email     = principal.FindFirst("email")?.Value
                      ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
 
-        await HttpClient.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(displayName, email, avatarUrl));
+        try
+        {
+            await HttpClient.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(displayName, email, avatarUrl));
+        }
+        catch { /* non-critical — page still loads */ }
 
         await _state.LoadBoardAsync(BoardId);
 
