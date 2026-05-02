@@ -426,11 +426,15 @@
     {
         var authState = await AuthState.GetAuthenticationStateAsync();
         var principal = authState.User;
-        await Http.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(
-            principal.FindFirst("name")?.Value ?? principal.FindFirst("nickname")?.Value,
-            principal.FindFirst("email")?.Value
-                ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
-            principal.FindFirst("picture")?.Value));
+        try
+        {
+            await Http.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(
+                principal.FindFirst("name")?.Value ?? principal.FindFirst("nickname")?.Value,
+                principal.FindFirst("email")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+                principal.FindFirst("picture")?.Value));
+        }
+        catch { /* non-critical — page still loads */ }
 
         await LoadTeams();
     }

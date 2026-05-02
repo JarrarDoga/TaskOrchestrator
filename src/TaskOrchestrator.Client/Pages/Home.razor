@@ -169,11 +169,16 @@
         var authState = await AuthState.GetAuthenticationStateAsync();
         var principal = authState.User;
         _manageCurrentUserId = principal.FindFirst("sub")?.Value;
-        await Http.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(
-            principal.FindFirst("name")?.Value ?? principal.FindFirst("nickname")?.Value,
-            principal.FindFirst("email")?.Value
-                ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
-            principal.FindFirst("picture")?.Value));
+        try
+        {
+            await Http.PostAsJsonAsync("/api/me/sync", new SyncProfileRequest(
+                principal.FindFirst("name")?.Value ?? principal.FindFirst("nickname")?.Value,
+                principal.FindFirst("email")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value,
+                principal.FindFirst("picture")?.Value));
+        }
+        catch { /* non-critical — page still loads */ }
+
         var boardsTask = Http.GetFromJsonAsync<List<BoardDto>>("/api/me/boards");
         var teamsTask = Http.GetFromJsonAsync<List<TeamDto>>("/api/teams");
 
