@@ -98,7 +98,8 @@ jobs:
           script: |
             set -e
             OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
-            IMAGE="ghcr.io/${OWNER}/task-orchestrator-api:${{ github.sha }}"
+            SHA_SHORT=$(echo '${{ github.sha }}' | cut -c1-7)
+            IMAGE="ghcr.io/${OWNER}/task-orchestrator-api:${SHA_SHORT}"
             cd /opt/taskorchestrator
             # Pull the new image
             docker pull "$IMAGE"
