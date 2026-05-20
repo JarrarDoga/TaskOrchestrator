@@ -88,11 +88,11 @@ TaskOrchestrator/
 │   └── migrations/                 # SQL migration scripts
 └── .github/
     └── workflows/
-        ├── ci.yml                  # Build, test, Docker image push to GHCR
-        └── deploy.yml              # Deploy API to VPS + client to Vercel on push to main
+        ├── ci.yml                  # Lint, build, test, Docker build validation
+        └── deploy.yml              # Push API image to GHCR + deploy API to VPS + client to Vercel
 ```
 
-The API and client are deployed independently. The Blazor WASM bundle is a static artifact — Vercel serves it globally and it connects to the self-hosted API at runtime. SignalR long-polling and WebSocket connections go directly to the API; Traefik handles TLS termination and routing on the VPS.
+The API and client are deployed independently. The Blazor WASM bundle is a static artifact — Vercel serves it globally and it connects to the self-hosted API at runtime. SignalR long-polling and WebSocket connections go directly to the API; the API container is attached to the Coolify Docker network and routed by Traefik on the VPS.
 
 ---
 
@@ -122,34 +122,42 @@ psql -U postgres -d taskorch -f db/migrations/001_initial.sql
 
 ### 3. Configure the API
 
-Create `src/TaskOrchestrator.Api/appsettings.Development.json`:
+Set API config (for example via User Secrets, environment variables, or by editing `src/TaskOrchestrator.Api/appsettings.json` for local use):
 
 ```json
 {
   "ConnectionStrings": {
-    "Default": "Host=localhost;Database=taskorch;Username=postgres;Password=postgres"
+    "Postgres": "Host=localhost;Port=5432;Database=task_orchestrator;Username=postgres;Password=postgres"
   },
   "Auth0": {
     "Domain": "your-tenant.auth0.com",
     "Audience": "https://your-api-audience"
   },
   "Resend": {
-    "ApiKey": "re_..."
+    "ApiKey": "re_...",
+    "FromEmail": "noreply@example.com",
+    "FromName": "Task Orchestrator"
+  },
+  "InviteEmail": {
+    "ClientBaseUrl": "http://localhost:5035"
   }
 }
 ```
 
 ### 4. Configure the client
 
-Edit `src/TaskOrchestrator.Client/wwwroot/appsettings.Development.json`:
+Edit `src/TaskOrchestrator.Client/wwwroot/appsettings.json`:
 
 ```json
 {
-  "ApiBaseUrl": "https://localhost:5001",
+  "ApiBaseUrl": "https://localhost:7195",
   "Auth0": {
-    "Domain": "your-tenant.auth0.com",
+    "Authority": "https://your-tenant.auth0.com",
     "ClientId": "your-spa-client-id",
-    "Audience": "https://your-api-audience"
+    "Audience": "https://your-api-audience",
+    "Scope": "openid profile email",
+    "MetadataUrl": "https://your-tenant.auth0.com/.well-known/openid-configuration",
+    "DefaultScopes": [ "openid", "profile", "email" ]
   }
 }
 ```
@@ -164,7 +172,7 @@ dotnet run --project src/TaskOrchestrator.Api
 dotnet run --project src/TaskOrchestrator.Client
 ```
 
-The client will be available at `https://localhost:5002` and the API at `https://localhost:5001`.
+By default, the client runs at `https://localhost:7261` (with `http://localhost:5035` also available) and the API runs at `https://localhost:7195` (with `http://localhost:5041` also available).
 
 ---
 
@@ -174,34 +182,38 @@ The application runs as two independent services:
 
 | Service | Platform | Notes |
 |---|---|---|
-| API | Self-hosted VPS (Docker + Traefik) | Image published to GHCR; Traefik handles TLS and routing |
+| API | Self-hosted VPS (Coolify-managed Docker + Traefik) | Image published to GHCR; container runs via Docker Compose on VPS and is connected to the Coolify network for Traefik routing |
 | Client | [Vercel](https://vercel.com) | Static Blazor WASM output; `appsettings.json` points to the VPS API URL |
 
 ### API environment variables (production)
 
 | Variable | Description |
 |---|---|
-| `ConnectionStrings__Default` | PostgreSQL connection string |
+| `ConnectionStrings__Postgres` | PostgreSQL connection string |
 | `Auth0__Domain` | Auth0 tenant domain |
 | `Auth0__Audience` | Custom API audience identifier |
 | `Resend__ApiKey` | Resend API key |
+| `Resend__FromEmail` | Sender email for invite/account messages |
+| `Resend__FromName` | Sender display name |
+| `InviteEmail__ClientBaseUrl` | Public client URL used in invite links |
 
 ---
 
 ## CI/CD
 
-GitHub Actions runs two workflows on push to `main`:
+GitHub Actions uses two main workflows:
 
 **`ci.yml`** — triggered on every push and pull request:
 1. Restore dependencies and build all projects
 2. Run the test suite
-3. Build the Docker image for `TaskOrchestrator.Api`
-4. Push the image to GitHub Container Registry (GHCR)
+3. Build the Docker image for `TaskOrchestrator.Api` (validation only)
 
-**`deploy.yml`** — triggered after `ci.yml` succeeds on `main`:
-1. SSH into the VPS and pull the new image from GHCR
-2. Restart the API container via Docker Compose
-3. Deploy the Blazor WASM client to Vercel using the Vercel CLI
+**`deploy.yml`** — triggered on pushes to `main`:
+1. Build, test, and verify
+2. Build and push the API image to GHCR
+3. SSH into the VPS, update `docker-compose.yml`, pull the new API image, and restart services
+4. Connect the API container to the Coolify Docker network for Traefik routing
+5. Deploy the Blazor WASM client to Vercel using the Vercel CLI
 
 Secrets (`GHCR_TOKEN`, `VPS_SSH_KEY`, `VERCEL_TOKEN`, etc.) are stored in GitHub repository secrets.
 
