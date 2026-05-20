@@ -1,0 +1,39 @@
+services:
+  taskorchestrator-db:
+    image: postgres:17-alpine
+    container_name: taskorchestrator-db
+    environment:
+      POSTGRES_DB: task_orchestrator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Task0rch3strat0r!
+    volumes:
+      - taskorchestrator_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  taskorchestrator-api:
+    image: TASK_ORCHESTRATOR_API_IMAGE
+    container_name: taskorchestrator-api
+    depends_on:
+      taskorchestrator-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: "Host=taskorchestrator-db;Port=5432;Database=task_orchestrator;Username=postgres;Password=Task0rch3strat0r!"
+      Auth0__Domain: dev-1a2cx08ksfvxqxy0.us.auth0.com
+      Auth0__Audience: https://api.taskorchestrator.io
+      AllowedOrigins__0: https://task-orchestrator-phi.vercel.app
+      AllowedOrigins__1: http://localhost:5173
+      AllowedOrigins__2: https://localhost:5173
+      AllowedOrigins__3: https://localhost:5035
+    restart: unless-stopped
+
+volumes:
+  taskorchestrator_pg_data:
+    external: true

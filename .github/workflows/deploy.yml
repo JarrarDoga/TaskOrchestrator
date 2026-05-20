@@ -88,6 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Encode compose file for transfer
+        run: echo "COMPOSE_B64=$(base64 -w0 docker-compose.yml)" >> $GITHUB_ENV
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.1.0
         with:
@@ -101,13 +104,13 @@ jobs:
             SHA_SHORT=$(echo '${{ github.sha }}' | cut -c1-7)
             IMAGE="ghcr.io/${OWNER}/task-orchestrator-api:${SHA_SHORT}"
             cd /opt/taskorchestrator
-            # Pull the new image
+            # Write a clean compose file from the repo (fixes the corrupted
+            # postgres image from the previous broad sed-all-image-lines approach)
+            echo '${{ env.COMPOSE_B64 }}' | base64 -d > docker-compose.yml
+            # Replace the placeholder with the real image tag
+            sed -i "s|TASK_ORCHESTRATOR_API_IMAGE|${IMAGE}|" docker-compose.yml
+            # Pull new image and start the full stack
             docker pull "$IMAGE"
-            # Stop old containers
-            docker compose down || true
-            # Update compose to use GHCR image with a sed that handles both cases
-            sed -i "s|image:.*|image: $IMAGE|" docker-compose.yml
-            # Start with new image, preserving data volume
             docker compose up -d
             # Reconnect API to coolify network for Traefik routing
             sleep 5
