@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  packages: write
+  contents: read
+
 jobs:
   # ── Client → Vercel ────────────────────────────────────────────────────────
   deploy-client:
@@ -17,12 +21,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      # Stamp the production API URL + Auth0 config into the static config file
       - name: Write production appsettings
         run: |
           cat > src/TaskOrchestrator.Client/wwwroot/appsettings.json << 'EOF'
           {
-            "ApiBaseUrl": "${{ secrets.PRODUCTION_API_URL }}",
+            "ApiBaseUrl": "https://taskorchestrator.jdoga.works",
             "Auth0": {
               "Authority": "https://dev-1a2cx08ksfvxqxy0.us.auth0.com",
               "ClientId": "PySo12BvRscr3yWK0eG3aY5DQZyx9TFs",
@@ -48,21 +51,71 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          test -n "$VERCEL_TOKEN" || (echo "Missing VERCEL_TOKEN secret" && exit 1)
-          test -n "$VERCEL_ORG_ID" || (echo "Missing VERCEL_ORG_ID secret" && exit 1)
-          test -n "$VERCEL_PROJECT_ID" || (echo "Missing VERCEL_PROJECT_ID secret" && exit 1)
           cd published/wwwroot
           rm -rf .vercel
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
           vercel deploy --prod --token="$VERCEL_TOKEN" --yes
 
-  # ── API → Render ───────────────────────────────────────────────────────────
-  # Render watches this repo directly and redeploys automatically on push to
-  # main using the Dockerfile. No workflow step needed — this job just records
-  # the deployment in the GitHub Actions log for visibility.
-  notify-render:
-    name: API → Render (auto)
+  # ── API → GHCR ────────────────────────────────────────────────────────────
+  build-and-push:
+    name: API → GHCR
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/task-orchestrator-api
+          tags: |
+            type=sha,prefix=
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy to VPS ─────────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API → VPS
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Render deploys automatically
-        run: echo "Render is watching this repo. API deployment triggered by push to main."
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            IMAGE="ghcr.io/${{ github.repository_owner }}/task-orchestrator-api:${{ github.sha }}"
+            docker pull "$IMAGE"
+            cd /opt/taskorchestrator
+            docker compose down
+            # Update the docker-compose.yml to use the GHCR image tag
+            sed -i "s|image: mcr.microsoft.com/dotnet/aspnet:10.0#|image: ${IMAGE}|" docker-compose.yml 2>/dev/null || true
+            # Remove build section if present (not needed with pre-built image)
+            docker compose --file <(sed '/build:/,/dockerfile:/d' docker-compose.yml) up -d
+            docker image prune -f
