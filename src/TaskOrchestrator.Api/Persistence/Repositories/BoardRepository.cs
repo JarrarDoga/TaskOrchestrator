@@ -114,6 +114,11 @@ public sealed class BoardRepository(IDbConnectionFactory db) : IBoardRepository
             """,
             new { request.Name, request.Description, request.TeamId });
 
+        // Guard against a missed /api/me/sync: boardmembers has FK → users, so the user must exist first.
+        await conn.ExecuteAsync(
+            "INSERT INTO Users (Id, DisplayName) VALUES (@Id, @Id) ON CONFLICT (Id) DO NOTHING",
+            new { Id = ownerUserId });
+
         await conn.ExecuteAsync(
             "INSERT INTO BoardMembers (BoardId, UserId, Role) VALUES (@BoardId, @UserId, 'Owner')",
             new { BoardId = id, UserId = ownerUserId });

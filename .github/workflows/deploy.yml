@@ -84,7 +84,7 @@ jobs:
     name: Deploy API → VPS
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.branch_ref == 'main'
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 

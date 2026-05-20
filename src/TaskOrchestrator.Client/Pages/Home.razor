@@ -198,15 +198,23 @@
         if (string.IsNullOrWhiteSpace(_newName)) { _createError = "Name is required."; return; }
         _creating = true;
         _createError = null;
-        var resp = await Http.PostAsJsonAsync("/api/boards", new CreateBoardRequest(_newName.Trim(), null, _newTeamId));
-        if (resp.IsSuccessStatusCode)
+        try
         {
-            var board = await resp.Content.ReadFromJsonAsync<BoardDto>();
-            if (board is not null) Nav.NavigateTo($"/board/{board.Id}");
+            var resp = await Http.PostAsJsonAsync("/api/boards", new CreateBoardRequest(_newName.Trim(), null, _newTeamId));
+            if (resp.IsSuccessStatusCode)
+            {
+                var board = await resp.Content.ReadFromJsonAsync<BoardDto>();
+                if (board is not null) Nav.NavigateTo($"/board/{board.Id}");
+            }
+            else
+            {
+                _createError = $"Failed to create board ({(int)resp.StatusCode}).";
+                _creating = false;
+            }
         }
-        else
+        catch
         {
-            _createError = $"Failed to create board ({(int)resp.StatusCode}).";
+            _createError = "An error occurred. Please try again.";
             _creating = false;
         }
     }

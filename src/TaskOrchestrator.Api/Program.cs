@@ -98,10 +98,21 @@ var app = builder.Build();
 app.UseCors();
 
 if (app.Environment.IsDevelopment())
+{
     app.UseDeveloperExceptionPage();
-
-if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
+}
+else
+{
+    // Must be after UseCors so the CORS OnStarting callback fires when the error response is written,
+    // otherwise unhandled exceptions cause a connection reset that the browser reports as a CORS error.
+    app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+    {
+        ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        ctx.Response.ContentType = "application/problem+json";
+        await ctx.Response.WriteAsync("""{"title":"An unexpected error occurred.","status":500}""");
+    }));
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
