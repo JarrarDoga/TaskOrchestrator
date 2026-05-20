@@ -80,7 +80,7 @@ public sealed class CardRepository(IDbConnectionFactory db) : ICardRepository
                 Description     = @Description,
                 Priority        = @Priority,
                 AssignedToUserId = @AssignedToUserId,
-                Metadata        = COALESCE(@Metadata, Metadata),
+                Metadata        = COALESCE(@Metadata::jsonb, Metadata),
                 UpdatedAtUtc    = NOW(),
                 UpdatedByUserId = @UserId,
                 Version         = Version + 1
