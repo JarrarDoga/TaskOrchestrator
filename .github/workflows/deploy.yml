@@ -9,11 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  # ── Client → Vercel ────────────────────────────────────────────────────────
-  deploy-client:
-    name: Client → Vercel
+  verify:
+    name: Build & Test
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -21,44 +19,26 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Write production appsettings
-        run: |
-          cat > src/TaskOrchestrator.Client/wwwroot/appsettings.json << 'EOF'
-          {
-            "ApiBaseUrl": "https://taskorchestrator.jdoga.works",
-            "Auth0": {
-              "Authority": "https://dev-1a2cx08ksfvxqxy0.us.auth0.com",
-              "ClientId": "PySo12BvRscr3yWK0eG3aY5DQZyx9TFs",
-              "Audience": "https://api.taskorchestrator.io",
-              "Scope": "openid profile email",
-              "MetadataUrl": "https://dev-1a2cx08ksfvxqxy0.us.auth0.com/.well-known/openid-configuration",
-              "DefaultScopes": [ "openid", "profile", "email" ]
-            }
-          }
-          EOF
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
 
-      - name: Publish client
-        run: |
-          dotnet publish src/TaskOrchestrator.Client/TaskOrchestrator.Client.csproj \
-            -c Release -o published
+      - name: Restore
+        run: dotnet restore
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+      - name: Build
+        run: dotnet build --no-restore -c Release
 
-      - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          cd published/wwwroot
-          rm -rf .vercel
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel deploy --prod --token="$VERCEL_TOKEN" --yes
+      - name: Test
+        run: dotnet test --no-build -c Release --verbosity minimal
 
   # ── API → GHCR ────────────────────────────────────────────────────────────
   build-and-push:
     name: API → GHCR
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.tags }}
@@ -80,6 +60,12 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/task-orchestrator-api
           tags: |
             type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: image=moby/buildkit:latest
 
       - name: Build and push
         id: build
@@ -98,6 +84,7 @@ jobs:
     name: Deploy API → VPS
     needs: build-and-push
     runs-on: ubuntu-latest
+    if: github.branch_ref == 'main'
     steps:
       - uses: actions/checkout@v4
 
@@ -111,11 +98,52 @@ jobs:
           script: |
             set -e
             IMAGE="ghcr.io/${{ github.repository_owner }}/task-orchestrator-api:${{ github.sha }}"
-            docker pull "$IMAGE"
             cd /opt/taskorchestrator
-            docker compose down
-            # Update the docker-compose.yml to use the GHCR image tag
-            sed -i "s|image: mcr.microsoft.com/dotnet/aspnet:10.0#|image: ${IMAGE}|" docker-compose.yml 2>/dev/null || true
-            # Remove build section if present (not needed with pre-built image)
-            docker compose --file <(sed '/build:/,/dockerfile:/d' docker-compose.yml) up -d
+            # Pull the new image
+            docker pull "$IMAGE"
+            # Stop old containers
+            docker compose down || true
+            # Update compose to use GHCR image with a sed that handles both cases
+            sed -i "s|image:.*|image: $IMAGE|" docker-compose.yml
+            # Start with new image, preserving data volume
+            docker compose up -d
+            # Reconnect API to coolify network for Traefik routing
+            sleep 5
+            docker network connect coolify taskorchestrator-api 2>/dev/null || true
+            # Cleanup old images
             docker image prune -f
+
+  # ── Client → Vercel ────────────────────────────────────────────────────────
+  deploy-client:
+    name: Client → Vercel
+    runs-on: ubuntu-latest
+    needs: verify
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Write production appsettings
+        run: |
+          cat > src/TaskOrchestrator.Client/wwwroot/appsettings.json << 'EOF'
+          {"ApiBaseUrl":"${{ secrets.PRODUCTION_API_URL }}","Auth0":{"Authority":"https://dev-1a2cx08ksfvxqxy0.us.auth0.com","ClientId":"PySo12BvRscr3yWK0eG3aY5DQZyx9TFs","Audience":"https://api.taskorchestrator.io","Scope":"openid profile email","MetadataUrl":"https://dev-1a2cx08ksfvxqxy0.us.auth0.com/.well-known/openid-configuration","DefaultScopes":["openid","profile","email"]}}
+          EOF
+
+      - name: Publish client
+        run: dotnet publish src/TaskOrchestrator.Client/TaskOrchestrator.Client.csproj -c Release -o published
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        run: |
+          cd published/wwwroot
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel deploy --prod --token="$VERCEL_TOKEN" --yes
