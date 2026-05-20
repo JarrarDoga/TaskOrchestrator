@@ -93,11 +93,15 @@ jobs:
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.1.0
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          envs: RESEND_API_KEY,RESEND_FROM_EMAIL
           script: |
             set -e
             OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
@@ -107,8 +111,10 @@ jobs:
             # Write a clean compose file from the repo (fixes the corrupted
             # postgres image from the previous broad sed-all-image-lines approach)
             echo '${{ env.COMPOSE_B64 }}' | base64 -d > docker-compose.yml
-            # Replace the placeholder with the real image tag
+            # Replace placeholders with real values
             sed -i "s|TASK_ORCHESTRATOR_API_IMAGE|${IMAGE}|" docker-compose.yml
+            sed -i "s|RESEND_API_KEY_SECRET|${RESEND_API_KEY}|" docker-compose.yml
+            sed -i "s|RESEND_FROM_EMAIL_SECRET|${RESEND_FROM_EMAIL}|" docker-compose.yml
             # Pull new image
             docker pull "$IMAGE"
             # Remove any stale containers before recreating (DB data is in external volume)

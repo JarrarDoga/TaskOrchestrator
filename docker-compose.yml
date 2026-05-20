@@ -32,6 +32,10 @@ services:
       AllowedOrigins__1: http://localhost:5173
       AllowedOrigins__2: https://localhost:5173
       AllowedOrigins__3: https://localhost:5035
+      Resend__ApiKey: RESEND_API_KEY_SECRET
+      Resend__FromEmail: RESEND_FROM_EMAIL_SECRET
+      Resend__FromName: "Task Orchestrator"
+      InviteEmail__ClientBaseUrl: https://task-orchestrator-phi.vercel.app
     restart: unless-stopped
 
 volumes:
