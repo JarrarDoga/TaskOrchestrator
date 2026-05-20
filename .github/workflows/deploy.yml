@@ -97,7 +97,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            IMAGE="ghcr.io/${{ github.repository_owner }}/task-orchestrator-api:${{ github.sha }}"
+            OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+            IMAGE="ghcr.io/${OWNER}/task-orchestrator-api:${{ github.sha }}"
             cd /opt/taskorchestrator
             # Pull the new image
             docker pull "$IMAGE"

@@ -24,6 +24,9 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Restore dependencies
+        run: dotnet restore --verbosity minimal
+
       - name: Check formatting and lint
         run: dotnet build --no-restore -c ${{ env.BUILD_CONFIG }} /p:EnforceCodeStyleInBuild=true --verbosity minimal
 
