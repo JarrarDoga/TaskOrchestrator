@@ -32,10 +32,10 @@ public sealed class TeamRepository(IDbConnectionFactory db) : ITeamRepository
             SELECT tm.TeamId, tm.UserId, COALESCE(u.DisplayName, tm.UserId) AS DisplayName, u.AvatarUrl, tm.Role, tm.JoinedAt, u.Email
             FROM TeamMembers tm
             LEFT JOIN Users u ON u.Id = tm.UserId
-            WHERE tm.TeamId IN @TeamIds
+            WHERE tm.TeamId = ANY(@TeamIds)
             ORDER BY tm.JoinedAt
             """,
-            new { TeamIds = teamIds }))
+            new { TeamIds = teamIds.ToArray() }))
             .GroupBy(m => m.TeamId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
