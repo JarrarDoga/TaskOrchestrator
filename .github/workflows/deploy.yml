@@ -156,6 +156,13 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
+      - name: Link Vercel project
+        run: |
+          mkdir -p published/wwwroot/.vercel
+          cat > published/wwwroot/.vercel/project.json << 'EOF'
+          {"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}
+          EOF
+
       - name: Deploy to Vercel
         run: |
           cd published/wwwroot
