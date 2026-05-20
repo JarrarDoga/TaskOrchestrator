@@ -109,9 +109,12 @@ jobs:
             echo '${{ env.COMPOSE_B64 }}' | base64 -d > docker-compose.yml
             # Replace the placeholder with the real image tag
             sed -i "s|TASK_ORCHESTRATOR_API_IMAGE|${IMAGE}|" docker-compose.yml
-            # Pull new image and start the full stack
+            # Pull new image
             docker pull "$IMAGE"
-            docker compose up -d
+            # Remove any stale containers before recreating (DB data is in external volume)
+            docker rm -f taskorchestrator-db taskorchestrator-api 2>/dev/null || true
+            # Start the full stack
+            docker compose up -d --remove-orphans
             # Reconnect API to coolify network for Traefik routing
             sleep 5
             docker network connect coolify taskorchestrator-api 2>/dev/null || true
